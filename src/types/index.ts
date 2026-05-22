@@ -1,4 +1,9 @@
-export type FieldKey = 'mainText' | 'variant1' | 'variant2' | 'variant3';
+export type FieldKey =
+  | 'mainText'
+  | 'variant1'
+  | 'variant2'
+  | 'variant3'
+  | 'meaning';
 
 export type FieldLabels = Record<FieldKey, string>;
 
@@ -17,6 +22,7 @@ export type Flashcard = {
   variant1: string;
   variant2: string;
   variant3: string;
+  meaning: string;
   notes?: string;
   tags: string[];
   rememberedCount: number;
@@ -31,6 +37,7 @@ export const FIELD_KEYS: FieldKey[] = [
   'variant1',
   'variant2',
   'variant3',
+  'meaning',
 ];
 
 export const DEFAULT_GENERIC_LABELS: FieldLabels = {
@@ -38,6 +45,7 @@ export const DEFAULT_GENERIC_LABELS: FieldLabels = {
   variant1: 'Variant 1',
   variant2: 'Variant 2',
   variant3: 'Variant 3',
+  meaning: 'Meaning',
 };
 
 export const JAPANESE_LABELS: FieldLabels = {
@@ -45,4 +53,5 @@ export const JAPANESE_LABELS: FieldLabels = {
   variant1: 'Romaji',
   variant2: 'Hiragana',
   variant3: 'Katakana',
+  meaning: 'Meaning',
 };

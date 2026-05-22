@@ -8,6 +8,7 @@ export type CreateFlashcardInput = {
   variant1?: string;
   variant2?: string;
   variant3?: string;
+  meaning?: string;
   notes?: string;
   tags?: string[];
 };
@@ -55,6 +56,7 @@ export async function createFlashcard(
     variant1: (input.variant1 ?? '').trim(),
     variant2: (input.variant2 ?? '').trim(),
     variant3: (input.variant3 ?? '').trim(),
+    meaning: (input.meaning ?? '').trim(),
     notes: input.notes?.trim() || undefined,
     tags: input.tags ?? [],
     rememberedCount: 0,

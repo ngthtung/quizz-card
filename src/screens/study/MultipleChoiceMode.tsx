@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { db } from '../../db/db';
 import { recordReview } from '../../db/flashcards';
 import { Button } from '../../components/Button';
+import { SpeakButton } from '../../components/SpeakButton';
+import { pronunciationFor } from '../../lib/speech';
 import {
   nonEmptyFields,
   pickRandom,
@@ -79,9 +81,23 @@ export function MultipleChoiceMode({ languageId }: { languageId: string }) {
         <p className="text-xs uppercase tracking-wide text-slate-400">
           {language.fieldLabels[question.questionField]}
         </p>
-        <p className="mt-2 text-3xl font-semibold text-slate-900 break-words">
-          {question.card[question.questionField]}
-        </p>
+        <div className="mt-2 flex items-center gap-2">
+          <p className="text-3xl font-semibold text-slate-900 break-words">
+            {question.card[question.questionField]}
+          </p>
+          {question.questionField !== 'meaning' ? (
+            <SpeakButton
+              text={question.card[question.questionField]}
+              pronunciation={
+                question.questionField === 'mainText'
+                  ? pronunciationFor(question.card, language)
+                  : undefined
+              }
+              languageName={language.name}
+              fieldKey={question.questionField}
+            />
+          ) : null}
+        </div>
         <p className="mt-3 text-xs text-slate-500">
           What is the {language.fieldLabels[question.answerField]}?
         </p>
@@ -109,6 +125,14 @@ export function MultipleChoiceMode({ languageId }: { languageId: string }) {
                 {String.fromCharCode(65 + i)}
               </span>
               <span className="flex-1 break-words">{c}</span>
+              {picked !== null && question.answerField !== 'meaning' ? (
+                <SpeakButton
+                  text={c}
+                  languageName={language.name}
+                  fieldKey={question.answerField}
+                  size="sm"
+                />
+              ) : null}
             </button>
           );
         })}

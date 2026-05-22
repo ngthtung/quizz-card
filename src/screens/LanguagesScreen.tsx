@@ -86,12 +86,12 @@ export function LanguagesScreen() {
                     </div>
                     <div className="flex gap-1">
                       <Button
-                        variant="ghost"
+                        variant="secondary"
                         onClick={() => setEditor({ mode: 'edit', language: lang })}
                       >
                         Edit
                       </Button>
-                      <Button variant="ghost" onClick={() => onDelete(lang)}>
+                      <Button variant="danger" onClick={() => onDelete(lang)}>
                         Delete
                       </Button>
                     </div>

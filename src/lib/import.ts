@@ -10,6 +10,7 @@ export type ImportRow = {
   variant1?: string;
   variant2?: string;
   variant3?: string;
+  meaning?: string;
   notes?: string;
   tags?: string | string[];
 };
@@ -37,10 +38,16 @@ export async function importRows(rows: ImportRow[]): Promise<ImportResult> {
     try {
       const langName = (row.language ?? '').trim();
       if (!langName) throw new Error('language is required');
-      if (!row.mainText || !row.mainText.trim())
-        throw new Error('mainText is required');
-      if (!row.variant1 && !row.variant2 && !row.variant3) {
-        throw new Error('at least one variant is required');
+      if (
+        ![
+          row.mainText,
+          row.variant1,
+          row.variant2,
+          row.variant3,
+          row.meaning,
+        ].some((v) => v && v.trim())
+      ) {
+        throw new Error('at least one field is required');
       }
 
       let languageId = byName.get(langName.toLowerCase());
@@ -64,10 +71,11 @@ export async function importRows(rows: ImportRow[]): Promise<ImportResult> {
 
       await createFlashcard({
         languageId,
-        mainText: row.mainText,
+        mainText: row.mainText ?? '',
         variant1: row.variant1 ?? '',
         variant2: row.variant2 ?? '',
         variant3: row.variant3 ?? '',
+        meaning: row.meaning ?? '',
         notes: row.notes,
         tags,
       });

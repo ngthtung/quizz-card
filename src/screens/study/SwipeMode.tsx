@@ -5,6 +5,8 @@ import { useDrag } from '@use-gesture/react';
 import { db } from '../../db/db';
 import { recordReview } from '../../db/flashcards';
 import { Button } from '../../components/Button';
+import { SpeakButton } from '../../components/SpeakButton';
+import { pronunciationFor } from '../../lib/speech';
 import {
   nonEmptyFields,
   pickRandom,
@@ -168,19 +170,46 @@ function SwipeCard({
         <p className="text-xs uppercase tracking-wide text-slate-400">
           {language.fieldLabels[promptField]}
         </p>
-        <p className="mt-2 text-3xl font-semibold text-slate-900 break-words">
-          {card[promptField]}
-        </p>
+        <div className="mt-2 flex items-center gap-2">
+          <p className="text-3xl font-semibold text-slate-900 break-words">
+            {card[promptField]}
+          </p>
+          {promptField !== 'meaning' ? (
+            <SpeakButton
+              text={card[promptField]}
+              pronunciation={
+                promptField === 'mainText'
+                  ? pronunciationFor(card, language)
+                  : undefined
+              }
+              languageName={language.name}
+              fieldKey={promptField}
+            />
+          ) : null}
+        </div>
 
         {revealed ? (
           <dl className="mt-6 space-y-2 border-t border-slate-100 pt-4">
             {otherFields.map((f) => (
-              <div key={f} className="flex justify-between gap-3">
+              <div key={f} className="flex items-center justify-between gap-3">
                 <dt className="text-xs text-slate-400">
                   {language.fieldLabels[f]}
                 </dt>
-                <dd className="text-right text-base font-medium text-slate-800">
-                  {card[f]}
+                <dd className="flex items-center gap-2 text-right text-base font-medium text-slate-800">
+                  <span>{card[f]}</span>
+                  {f !== 'meaning' ? (
+                    <SpeakButton
+                      text={card[f]}
+                      pronunciation={
+                        f === 'mainText'
+                          ? pronunciationFor(card, language)
+                          : undefined
+                      }
+                      languageName={language.name}
+                      fieldKey={f}
+                      size="sm"
+                    />
+                  ) : null}
                 </dd>
               </div>
             ))}

@@ -9,8 +9,8 @@ import {
   type ImportResult,
 } from '../lib/import';
 
-const SAMPLE_CSV = `language,mainText,variant1,variant2,variant3,notes,tags
-Japanese,今日は,konnichiwa,こんにちわ,コンニチワ,Greeting,"daily,greeting"`;
+const SAMPLE_CSV = `language,mainText,variant1,variant2,variant3,meaning,notes,tags
+Japanese,今日は,konnichiwa,こんにちわ,コンニチワ,xin chào,Greeting,"daily,greeting"`;
 
 const SAMPLE_JSON = `[
   {
@@ -19,6 +19,7 @@ const SAMPLE_JSON = `[
     "variant1": "konnichiwa",
     "variant2": "こんにちわ",
     "variant3": "コンニチワ",
+    "meaning": "xin chào",
     "notes": "Greeting",
     "tags": ["daily", "greeting"]
   }

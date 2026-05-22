@@ -4,13 +4,15 @@ import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
 import { TextArea, TextField } from '../components/TextField';
+import { SpeakButton } from '../components/SpeakButton';
+import { pronunciationFor } from '../lib/speech';
 import { db } from '../db/db';
 import {
   createFlashcard,
   deleteFlashcard,
   updateFlashcard,
 } from '../db/flashcards';
-import { FIELD_KEYS, type Flashcard, type Language } from '../types';
+import type { Flashcard, Language } from '../types';
 
 type EditorState =
   | { mode: 'create' }
@@ -44,7 +46,14 @@ export function CardsScreen() {
       if (tagFilter && !c.tags.includes(tagFilter)) return false;
       if (search) {
         const q = search.toLowerCase();
-        const hay = [c.mainText, c.variant1, c.variant2, c.variant3, c.notes ?? '']
+        const hay = [
+          c.mainText,
+          c.variant1,
+          c.variant2,
+          c.variant3,
+          c.meaning,
+          c.notes ?? '',
+        ]
           .join(' ')
           .toLowerCase();
         if (!hay.includes(q)) return false;
@@ -130,19 +139,35 @@ export function CardsScreen() {
                 className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-lg font-semibold">{c.mainText}</p>
-                    <p className="text-xs text-slate-500">{lang?.name ?? '—'}</p>
+                  <div className="flex items-start gap-2">
+                    {c.mainText ? (
+                      <SpeakButton
+                        text={c.mainText}
+                        pronunciation={pronunciationFor(c, lang)}
+                        languageName={lang?.name}
+                        fieldKey="mainText"
+                      />
+                    ) : null}
+                    <div>
+                      <p className="text-lg font-semibold">
+                        {c.mainText || (
+                          <span className="text-slate-400">(no main text)</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {lang?.name ?? '—'}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex gap-1">
                     <Button
-                      variant="ghost"
+                      variant="secondary"
                       onClick={() => setEditor({ mode: 'edit', card: c })}
                     >
                       Edit
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant="danger"
                       onClick={() => {
                         if (confirm('Delete this card?')) {
                           void deleteFlashcard(c.id);
@@ -155,20 +180,38 @@ export function CardsScreen() {
                 </div>
 
                 <dl className="mt-3 space-y-1 text-sm">
-                  {FIELD_KEYS.slice(1).map((k) => {
+                  {(['variant1', 'variant2', 'variant3'] as const).map((k) => {
                     const value = c[k];
                     if (!value) return null;
                     return (
-                      <div key={k} className="flex justify-between gap-2">
+                      <div
+                        key={k}
+                        className="flex items-center justify-between gap-2"
+                      >
                         <dt className="text-slate-400">
                           {lang?.fieldLabels[k] ?? k}
                         </dt>
-                        <dd className="text-right font-medium text-slate-700">
-                          {value}
+                        <dd className="flex items-center gap-2 text-right font-medium text-slate-700">
+                          <span>{value}</span>
+                          <SpeakButton
+                            text={value}
+                            languageName={lang?.name}
+                            size="sm"
+                          />
                         </dd>
                       </div>
                     );
                   })}
+                  {c.meaning ? (
+                    <div className="flex items-start justify-between gap-2 border-t border-slate-100 pt-1">
+                      <dt className="text-slate-400">
+                        {lang?.fieldLabels.meaning ?? 'Meaning'}
+                      </dt>
+                      <dd className="text-right font-medium text-slate-800">
+                        {c.meaning}
+                      </dd>
+                    </div>
+                  ) : null}
                 </dl>
 
                 {c.tags.length > 0 ? (
@@ -227,6 +270,7 @@ function CardEditor({
   const [variant1, setVariant1] = useState(initial?.variant1 ?? '');
   const [variant2, setVariant2] = useState(initial?.variant2 ?? '');
   const [variant3, setVariant3] = useState(initial?.variant3 ?? '');
+  const [meaning, setMeaning] = useState(initial?.meaning ?? '');
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [tagsRaw, setTagsRaw] = useState(initial?.tags.join(', ') ?? '');
   const [busy, setBusy] = useState(false);
@@ -235,12 +279,10 @@ function CardEditor({
   const lang = languages.find((l) => l.id === languageId);
 
   async function onSave() {
-    if (!mainText.trim()) {
-      setErr('Main text is required');
-      return;
-    }
-    if (!variant1 && !variant2 && !variant3) {
-      setErr('At least one variant is required');
+    if (
+      ![mainText, variant1, variant2, variant3, meaning].some((v) => v.trim())
+    ) {
+      setErr('Fill at least one field');
       return;
     }
     const tags = tagsRaw
@@ -257,6 +299,7 @@ function CardEditor({
           variant1: variant1.trim(),
           variant2: variant2.trim(),
           variant3: variant3.trim(),
+          meaning: meaning.trim(),
           notes: notes.trim() || undefined,
           tags,
         });
@@ -267,6 +310,7 @@ function CardEditor({
           variant1,
           variant2,
           variant3,
+          meaning,
           notes,
           tags,
         });
@@ -279,6 +323,18 @@ function CardEditor({
     }
   }
 
+  async function onDelete() {
+    if (!isEdit || !initial) return;
+    if (!confirm('Delete this card?')) return;
+    setBusy(true);
+    try {
+      await deleteFlashcard(initial.id);
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Modal
       open
@@ -286,6 +342,16 @@ function CardEditor({
       title={isEdit ? 'Edit card' : 'New card'}
       footer={
         <>
+          {isEdit ? (
+            <Button
+              variant="danger"
+              onClick={onDelete}
+              disabled={busy}
+              className="mr-auto"
+            >
+              Delete
+            </Button>
+          ) : null}
           <Button variant="ghost" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
@@ -333,6 +399,12 @@ function CardEditor({
           label={lang?.fieldLabels.variant3 ?? 'Variant 3'}
           value={variant3}
           onChange={(e) => setVariant3(e.target.value)}
+        />
+        <TextField
+          label={lang?.fieldLabels.meaning ?? 'Meaning'}
+          value={meaning}
+          onChange={(e) => setMeaning(e.target.value)}
+          placeholder="Nghĩa / meaning"
         />
         <TextField
           label="Tags (comma-separated)"

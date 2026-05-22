@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { db } from '../db/db';
+import { setKanjiAudioEnabled, useSettings } from '../lib/settings';
 
 export function SettingsScreen() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const { kanjiAudioEnabled } = useSettings();
 
   async function onExport() {
     setBusy(true);
@@ -61,6 +63,30 @@ export function SettingsScreen() {
       <PageHeader title="Settings" />
       <div className="px-4 py-6 md:px-6">
         <div className="mx-auto max-w-md space-y-4">
+          <section className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <h2 className="text-base font-semibold">
+                  Play Kanji (Chinese character) audio
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Turn off if you can already read kanji and don't want the 🔊
+                  button on the Kanji field.
+                </p>
+              </div>
+              <label className="relative inline-flex shrink-0 cursor-pointer items-center">
+                <input
+                  type="checkbox"
+                  className="peer sr-only"
+                  checked={kanjiAudioEnabled}
+                  onChange={(e) => setKanjiAudioEnabled(e.target.checked)}
+                />
+                <span className="h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-emerald-600" />
+                <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+              </label>
+            </div>
+          </section>
+
           <section className="rounded-xl border border-slate-200 bg-white p-4">
             <h2 className="text-base font-semibold">Export</h2>
             <p className="mt-1 text-sm text-slate-600">
