@@ -1,17 +1,16 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
-import { db } from '../../db/db';
-import { recordReview } from '../../db/flashcards';
-import { Button } from '../../components/Button';
-import { SpeakButton } from '../../components/SpeakButton';
-import { pronunciationFor } from '../../lib/speech';
-import {
-  nonEmptyFields,
-  pickRandom,
-  pickWeighted,
-  shuffle,
-} from '../../lib/study';
-import type { FieldKey, Flashcard } from '../../types';
+import { ArrowRight } from 'lucide-react';
+import { db } from '@/db/db';
+import { recordReview } from '@/db/flashcards';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { SpeakButton } from '@/components/SpeakButton';
+import { Furigana } from '@/components/Furigana';
+import { pronunciationFor } from '@/lib/speech';
+import { nonEmptyFields, pickRandom, pickWeighted, shuffle } from '@/lib/study';
+import { cn } from '@/lib/utils';
+import type { FieldKey, Flashcard } from '@/types';
 
 type Question = {
   card: Flashcard;
@@ -33,6 +32,7 @@ export function MultipleChoiceMode({ languageId }: { languageId: string }) {
 
   const [question, setQuestion] = useState<Question | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
+  const [reviewed, setReviewed] = useState(0);
 
   useEffect(() => {
     if (cards && !question) {
@@ -53,37 +53,55 @@ export function MultipleChoiceMode({ languageId }: { languageId: string }) {
       .where('languageId')
       .equals(languageId)
       .toArray();
+    setReviewed((n) => n + 1);
     setQuestion(buildQuestion(fresh));
     setPicked(null);
   }
 
   if (!cards || !language) {
-    return <div className="px-4 py-6 text-slate-600">Loading…</div>;
+    return (
+      <p className="text-muted-foreground px-4 py-6 text-sm">Loading…</p>
+    );
   }
   if (cards.length === 0) {
     return (
-      <div className="px-4 py-6 text-slate-600">
+      <p className="text-muted-foreground px-4 py-6 text-sm">
         No cards in this language yet.
-      </div>
+      </p>
     );
   }
   if (!question) {
     return (
-      <div className="px-4 py-6 text-slate-600">
+      <p className="text-muted-foreground px-4 py-6 text-sm">
         Need at least one card with two filled fields.
-      </div>
+      </p>
     );
   }
 
+  const isJa = language.name?.toLowerCase() === 'japanese';
+  const sessionTotal = Math.max(cards.length, reviewed + 1);
+  const progress = Math.min(100, (reviewed / sessionTotal) * 100);
+
   return (
     <div className="mx-auto max-w-md px-4 py-6 md:px-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-xs uppercase tracking-wide text-slate-400">
+      <div className="mb-4 space-y-1">
+        <div className="text-muted-foreground flex items-center justify-between text-xs">
+          <span>Reviewed {reviewed}</span>
+          <span>{cards.length} cards in pool</span>
+        </div>
+        <Progress value={progress} />
+      </div>
+
+      <div className="bg-card rounded-2xl border p-6 shadow-xs">
+        <p className="text-muted-foreground text-xs uppercase tracking-wide">
           {language.fieldLabels[question.questionField]}
         </p>
         <div className="mt-2 flex items-center gap-2">
-          <p className="text-3xl font-semibold text-slate-900 break-words">
-            {question.card[question.questionField]}
+          <p className="text-3xl font-semibold wrap-break-word">
+            <Furigana
+              text={question.card[question.questionField]}
+              enabled={isJa && question.questionField === 'mainText'}
+            />
           </p>
           {question.questionField !== 'meaning' ? (
             <SpeakButton
@@ -95,43 +113,56 @@ export function MultipleChoiceMode({ languageId }: { languageId: string }) {
               }
               languageName={language.name}
               fieldKey={question.questionField}
+              size="sm"
             />
           ) : null}
         </div>
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="text-muted-foreground mt-3 text-xs">
           What is the {language.fieldLabels[question.answerField]}?
         </p>
       </div>
 
-      <div className="mt-4 space-y-2">
+      <div className="mt-4 grid gap-2 md:grid-cols-2">
         {question.choices.map((c, i) => {
           const isPicked = picked === i;
           const isCorrect = i === question.correctIndex;
-          let cls = 'border-slate-200 bg-white hover:border-slate-300';
-          if (picked !== null) {
-            if (isCorrect) cls = 'border-emerald-500 bg-emerald-50';
-            else if (isPicked) cls = 'border-red-500 bg-red-50';
-            else cls = 'border-slate-200 bg-white opacity-60';
-          }
+          const cls =
+            picked === null
+              ? 'bg-card hover:bg-accent border-border'
+              : isCorrect
+                ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500'
+                : isPicked
+                  ? 'border-destructive bg-destructive/10 ring-2 ring-destructive'
+                  : 'bg-card border-border opacity-60';
           return (
             <button
               key={i}
               type="button"
-              onClick={() => onPick(i)}
-              disabled={picked !== null}
-              className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-base transition ${cls}`}
+              onClick={() => picked === null && onPick(i)}
+              className={cn(
+                'flex min-h-12 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-base transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                cls,
+                picked !== null && 'cursor-default',
+              )}
             >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-700">
+              <span className="bg-muted text-foreground flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold">
                 {String.fromCharCode(65 + i)}
               </span>
-              <span className="flex-1 break-words">{c}</span>
-              {picked !== null && question.answerField !== 'meaning' ? (
-                <SpeakButton
+              <span className="flex-1 wrap-break-word">
+                <Furigana
                   text={c}
-                  languageName={language.name}
-                  fieldKey={question.answerField}
-                  size="sm"
+                  enabled={isJa && question.answerField === 'mainText'}
                 />
+              </span>
+              {picked !== null && question.answerField !== 'meaning' ? (
+                <span onClick={(e) => e.stopPropagation()}>
+                  <SpeakButton
+                    text={c}
+                    languageName={language.name}
+                    fieldKey={question.answerField}
+                    size="sm"
+                  />
+                </span>
               ) : null}
             </button>
           );
@@ -139,8 +170,9 @@ export function MultipleChoiceMode({ languageId }: { languageId: string }) {
       </div>
 
       {picked !== null ? (
-        <Button className="mt-5 w-full py-3 text-base" onClick={onNext}>
+        <Button size="lg" className="mt-5 w-full" onClick={onNext}>
           Next question
+          <ArrowRight />
         </Button>
       ) : null}
     </div>
@@ -168,11 +200,5 @@ function buildQuestion(cards: Flashcard[]): Question | null {
   const allChoices = shuffle([correct, ...distractors]);
   const correctIndex = allChoices.indexOf(correct);
 
-  return {
-    card,
-    questionField,
-    answerField,
-    choices: allChoices,
-    correctIndex,
-  };
+  return { card, questionField, answerField, choices: allChoices, correctIndex };
 }

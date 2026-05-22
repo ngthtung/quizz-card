@@ -1,12 +1,37 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
-import { PageHeader } from '../components/PageHeader';
-import { Button } from '../components/Button';
-import { db } from '../db/db';
+import { ArrowLeft, Keyboard, Layers, Target } from 'lucide-react';
+import { PageHeader, PageShell } from '@/components/PageHeader';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
+import { db } from '@/db/db';
 import { SwipeMode } from './study/SwipeMode';
 import { MultipleChoiceMode } from './study/MultipleChoiceMode';
+import { WriteMode } from './study/WriteMode';
 
-type Mode = 'swipe' | 'mc';
+type Mode = 'swipe' | 'mc' | 'write';
+
+const MODE_TITLES: Record<Mode, string> = {
+  swipe: 'Swipe study',
+  mc: 'Multiple choice',
+  write: 'Write study',
+};
 
 type Session = { mode: Mode; languageId: string };
 
@@ -15,6 +40,13 @@ export function StudyScreen() {
     () => db.languages.orderBy('name').toArray(),
     [],
   );
+  const cardCounts = useLiveQuery(async () => {
+    const all = await db.flashcards.toArray();
+    const map: Record<string, number> = {};
+    for (const c of all) map[c.languageId] = (map[c.languageId] ?? 0) + 1;
+    return map;
+  }, []);
+
   const [mode, setMode] = useState<Mode>('swipe');
   const [languageId, setLanguageId] = useState<string>('');
   const [session, setSession] = useState<Session | null>(null);
@@ -23,111 +55,113 @@ export function StudyScreen() {
     return (
       <>
         <PageHeader
-          title={session.mode === 'swipe' ? 'Swipe study' : 'Multiple choice'}
+          title={MODE_TITLES[session.mode]}
           actions={
             <Button variant="ghost" onClick={() => setSession(null)}>
+              <ArrowLeft />
               End session
             </Button>
           }
         />
         {session.mode === 'swipe' ? (
           <SwipeMode languageId={session.languageId} />
-        ) : (
+        ) : session.mode === 'mc' ? (
           <MultipleChoiceMode languageId={session.languageId} />
+        ) : (
+          <WriteMode languageId={session.languageId} />
         )}
       </>
     );
   }
 
-  const noLanguages = !languages || languages.length === 0;
+  const noLanguages = languages !== undefined && languages.length === 0;
+  const availableCount = languageId ? (cardCounts?.[languageId] ?? 0) : 0;
 
   return (
     <>
       <PageHeader title="Study" />
-      <div className="px-4 py-6 md:px-6">
+      <PageShell>
         {noLanguages ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Create a language and some cards first.
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>No languages yet</CardTitle>
+              <CardDescription>
+                Create a language and add cards before starting a session.
+              </CardDescription>
+            </CardHeader>
+          </Card>
         ) : (
-          <div className="mx-auto max-w-md space-y-5">
-            <div>
-              <p className="mb-2 text-sm font-medium text-slate-700">Mode</p>
-              <div className="grid grid-cols-2 gap-2">
-                <ModeButton
-                  active={mode === 'swipe'}
-                  onClick={() => setMode('swipe')}
-                  label="Swipe"
-                  hint="Tap to reveal, swipe left/right"
-                />
-                <ModeButton
-                  active={mode === 'mc'}
-                  onClick={() => setMode('mc')}
-                  label="Multiple choice"
-                  hint="Pick A, B, C, or D"
-                />
-              </div>
-            </div>
+          <div className="mx-auto max-w-md">
+            <Card>
+              <CardHeader>
+                <CardTitle>Start a study session</CardTitle>
+                <CardDescription>
+                  Pick a mode and language to begin.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="space-y-2">
+                  <Label>Mode</Label>
+                  <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="swipe">
+                        <Layers />
+                        Swipe
+                      </TabsTrigger>
+                      <TabsTrigger value="mc">
+                        <Target />
+                        Choice
+                      </TabsTrigger>
+                      <TabsTrigger value="write">
+                        <Keyboard />
+                        Write
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                  <p className="text-muted-foreground text-xs">
+                    {mode === 'swipe'
+                      ? 'Tap to reveal, swipe left/right.'
+                      : mode === 'mc'
+                        ? 'Pick A, B, C, or D.'
+                        : 'Type the answer.'}
+                  </p>
+                </div>
 
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium text-slate-700">
-                Language
-              </span>
-              <select
-                value={languageId}
-                onChange={(e) => setLanguageId(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              >
-                <option value="">Choose…</option>
-                {languages?.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <div className="space-y-2">
+                  <Label>Language</Label>
+                  <Select value={languageId} onValueChange={setLanguageId}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Choose a language…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {languages?.map((l) => (
+                        <SelectItem key={l.id} value={l.id}>
+                          {l.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {languageId ? (
+                    <Badge variant="secondary">
+                      {availableCount} card
+                      {availableCount === 1 ? '' : 's'} available
+                    </Badge>
+                  ) : null}
+                </div>
 
-            <Button
-              className="w-full py-3 text-base"
-              disabled={!languageId}
-              onClick={() => setSession({ mode, languageId })}
-            >
-              Start session
-            </Button>
+                <Button
+                  size="lg"
+                  className="w-full"
+                  disabled={!languageId || availableCount === 0}
+                  onClick={() => setSession({ mode, languageId })}
+                >
+                  Start session
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         )}
-      </div>
+      </PageShell>
     </>
-  );
-}
-
-function ModeButton({
-  active,
-  onClick,
-  label,
-  hint,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  hint: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-xl border px-3 py-3 text-left transition ${
-        active
-          ? 'border-slate-900 bg-slate-900 text-white'
-          : 'border-slate-200 bg-white text-slate-900 hover:border-slate-300'
-      }`}
-    >
-      <div className="text-sm font-semibold">{label}</div>
-      <div
-        className={`text-xs ${active ? 'text-slate-300' : 'text-slate-500'}`}
-      >
-        {hint}
-      </div>
-    </button>
   );
 }

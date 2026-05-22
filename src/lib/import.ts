@@ -3,6 +3,8 @@ import { createFlashcard } from '../db/flashcards';
 import { createLanguage } from '../db/languages';
 import { JAPANESE_LABELS } from '../types';
 import { parseCsv } from './csv';
+import { looksLikeRomaji, romajiToHiragana } from './kana';
+import { hasAtLeastOneField } from './schemas';
 
 export type ImportRow = {
   language?: string;
@@ -38,15 +40,7 @@ export async function importRows(rows: ImportRow[]): Promise<ImportResult> {
     try {
       const langName = (row.language ?? '').trim();
       if (!langName) throw new Error('language is required');
-      if (
-        ![
-          row.mainText,
-          row.variant1,
-          row.variant2,
-          row.variant3,
-          row.meaning,
-        ].some((v) => v && v.trim())
-      ) {
+      if (!hasAtLeastOneField(row)) {
         throw new Error('at least one field is required');
       }
 
@@ -69,11 +63,18 @@ export async function importRows(rows: ImportRow[]): Promise<ImportResult> {
             .map((t) => t.trim())
             .filter(Boolean);
 
+      const isJapanese = langName.toLowerCase() === 'japanese';
+      const variant1 = row.variant1 ?? '';
+      let variant2 = row.variant2 ?? '';
+      if (isJapanese && !variant2.trim() && looksLikeRomaji(variant1)) {
+        variant2 = romajiToHiragana(variant1);
+      }
+
       await createFlashcard({
         languageId,
         mainText: row.mainText ?? '',
-        variant1: row.variant1 ?? '',
-        variant2: row.variant2 ?? '',
+        variant1,
+        variant2,
         variant3: row.variant3 ?? '',
         meaning: row.meaning ?? '',
         notes: row.notes,

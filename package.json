@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "node -e \"import('node:fs').then(({cpSync})=>{try{cpSync('node_modules/kuromoji/dict','public/dict',{recursive:true});console.log('kuromoji dict copied to public/dict')}catch(e){console.warn('kuromoji dict copy skipped:',e.message)}})\""
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -28,7 +29,11 @@
     "dexie": "^4.4.2",
     "dexie-react-hooks": "^4.4.0",
     "framer-motion": "^12.40.0",
+    "kuromoji": "^0.1.2",
     "lucide-react": "^1.16.0",
+    "memfs": "^4.57.2",
+    "pako": "^2.1.0",
+    "path-browserify": "^1.0.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-hook-form": "^7.76.0",

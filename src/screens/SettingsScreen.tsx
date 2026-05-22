@@ -1,17 +1,41 @@
 import { useState } from 'react';
-import { PageHeader } from '../components/PageHeader';
-import { Button } from '../components/Button';
-import { db } from '../db/db';
-import { setKanjiAudioEnabled, useSettings } from '../lib/settings';
+import { toast } from 'sonner';
+import { Download, Sparkles, Trash2 } from 'lucide-react';
+import { PageHeader, PageShell } from '@/components/PageHeader';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { db } from '@/db/db';
+import { setKanjiAudioEnabled, useSettings } from '@/lib/settings';
+import { looksLikeRomaji, romajiToHiragana } from '@/lib/kana';
 
 export function SettingsScreen() {
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [confirmText, setConfirmText] = useState('');
+  const [resetOpen, setResetOpen] = useState(false);
   const { kanjiAudioEnabled } = useSettings();
 
   async function onExport() {
     setBusy(true);
-    setMessage(null);
     try {
       const [languages, flashcards] = await Promise.all([
         db.languages.toArray(),
@@ -29,30 +53,67 @@ export function SettingsScreen() {
         .slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      setMessage(
+      toast.success(
         `Exported ${languages.length} language(s) and ${flashcards.length} card(s).`,
       );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Export failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onBackfillHiragana() {
+    setBusy(true);
+    try {
+      const japanese = await db.languages
+        .filter((l) => l.name.toLowerCase() === 'japanese')
+        .toArray();
+      if (japanese.length === 0) {
+        toast.info('No Japanese language found.');
+        return;
+      }
+      const ids = japanese.map((l) => l.id);
+      const cards = await db.flashcards
+        .where('languageId')
+        .anyOf(ids)
+        .toArray();
+      const updates = cards
+        .filter((c) => !c.variant2.trim() && looksLikeRomaji(c.variant1))
+        .map((c) => ({ id: c.id, variant2: romajiToHiragana(c.variant1) }));
+      if (updates.length === 0) {
+        toast.info('All Japanese cards already have hiragana.');
+        return;
+      }
+      const now = new Date().toISOString();
+      await db.transaction('rw', db.flashcards, async () => {
+        for (const u of updates) {
+          await db.flashcards.update(u.id, {
+            variant2: u.variant2,
+            updatedAt: now,
+          });
+        }
+      });
+      toast.success(`Filled hiragana for ${updates.length} card(s).`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Backfill failed');
     } finally {
       setBusy(false);
     }
   }
 
   async function onReset() {
-    if (
-      !confirm(
-        'Delete ALL languages and cards? This cannot be undone. Export first if needed.',
-      )
-    ) {
-      return;
-    }
     setBusy(true);
-    setMessage(null);
     try {
       await db.transaction('rw', db.languages, db.flashcards, async () => {
         await db.flashcards.clear();
         await db.languages.clear();
       });
-      setMessage('All data cleared.');
+      toast.success('All data cleared.');
+      setResetOpen(false);
+      setConfirmText('');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Reset failed');
     } finally {
       setBusy(false);
     }
@@ -61,64 +122,138 @@ export function SettingsScreen() {
   return (
     <>
       <PageHeader title="Settings" />
-      <div className="px-4 py-6 md:px-6">
-        <div className="mx-auto max-w-md space-y-4">
-          <section className="rounded-xl border border-slate-200 bg-white p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1">
-                <h2 className="text-base font-semibold">
-                  Play Kanji (Chinese character) audio
-                </h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  Turn off if you can already read kanji and don't want the 🔊
-                  button on the Kanji field.
-                </p>
-              </div>
-              <label className="relative inline-flex shrink-0 cursor-pointer items-center">
-                <input
-                  type="checkbox"
-                  className="peer sr-only"
+      <PageShell>
+        <div className="mx-auto max-w-2xl space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Audio</CardTitle>
+              <CardDescription>
+                Voice playback options for cards.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <Label
+                    htmlFor="kanji-audio"
+                    className="text-base font-medium"
+                  >
+                    Play Kanji (Chinese character) audio
+                  </Label>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    Turn off if you can already read kanji and don't want the
+                    speaker button on the Kanji field.
+                  </p>
+                </div>
+                <Switch
+                  id="kanji-audio"
                   checked={kanjiAudioEnabled}
-                  onChange={(e) => setKanjiAudioEnabled(e.target.checked)}
+                  onCheckedChange={setKanjiAudioEnabled}
                 />
-                <span className="h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-emerald-600" />
-                <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
-              </label>
-            </div>
-          </section>
+              </div>
+            </CardContent>
+          </Card>
 
-          <section className="rounded-xl border border-slate-200 bg-white p-4">
-            <h2 className="text-base font-semibold">Export</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Download a JSON backup of all languages and cards.
-            </p>
-            <Button className="mt-3" onClick={onExport} disabled={busy}>
-              Download backup
-            </Button>
-          </section>
+          <Card>
+            <CardHeader>
+              <CardTitle>Fill missing Hiragana</CardTitle>
+              <CardDescription>
+                For Japanese cards with empty Hiragana, generate it from the
+                Romaji field.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="outline"
+                onClick={onBackfillHiragana}
+                disabled={busy}
+              >
+                <Sparkles />
+                Fill from Romaji
+              </Button>
+            </CardContent>
+          </Card>
 
-          <section className="rounded-xl border border-red-200 bg-white p-4">
-            <h2 className="text-base font-semibold text-red-700">
-              Reset all data
-            </h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Deletes every language and card from this browser.
-            </p>
-            <Button
-              variant="danger"
-              className="mt-3"
-              onClick={onReset}
-              disabled={busy}
-            >
-              Reset everything
-            </Button>
-          </section>
+          <Card>
+            <CardHeader>
+              <CardTitle>Data</CardTitle>
+              <CardDescription>
+                Export a JSON backup of every language and card.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={onExport} disabled={busy}>
+                <Download />
+                Download backup
+              </Button>
+            </CardContent>
+          </Card>
 
-          {message ? (
-            <p className="text-sm text-slate-600">{message}</p>
-          ) : null}
+          <Card className="border-destructive/40">
+            <CardHeader>
+              <CardTitle className="text-destructive">Reset all data</CardTitle>
+              <CardDescription>
+                Deletes every language and card from this browser. Cannot be
+                undone.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive">
+                    <Trash2 />
+                    Reset everything
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Delete all languages and cards?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This permanently removes every language and card stored
+                      in this browser. Export first if you might want them
+                      back.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-delete">
+                      Type{' '}
+                      <span className="font-mono font-semibold">DELETE</span>{' '}
+                      to confirm
+                    </Label>
+                    <Input
+                      id="confirm-delete"
+                      autoFocus
+                      value={confirmText}
+                      onChange={(e) => setConfirmText(e.target.value)}
+                      placeholder="DELETE"
+                    />
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel
+                      onClick={() => setConfirmText('')}
+                      disabled={busy}
+                    >
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (confirmText === 'DELETE') void onReset();
+                      }}
+                      disabled={busy || confirmText !== 'DELETE'}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete everything
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </CardContent>
+          </Card>
         </div>
-      </div>
+      </PageShell>
     </>
   );
 }

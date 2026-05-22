@@ -1,6 +1,9 @@
-import { speak, speechSupported } from '../lib/speech';
-import { useSettings } from '../lib/settings';
-import type { FieldKey } from '../types';
+import { Volume2 } from 'lucide-react';
+import { speak, speechSupported } from '@/lib/speech';
+import { useSettings } from '@/lib/settings';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import type { FieldKey } from '@/types';
 
 export function SpeakButton({
   text,
@@ -27,20 +30,21 @@ export function SpeakButton({
   ) {
     return null;
   }
-  const sizeCls =
-    size === 'sm' ? 'h-6 w-6 text-xs' : 'h-8 w-8 text-sm';
+
   return (
-    <button
+    <Button
       type="button"
+      variant="secondary"
+      size={size === 'sm' ? 'icon-sm' : 'icon'}
       onClick={(e) => {
         e.stopPropagation();
         speak(spoken, languageName);
       }}
       title="Play audio"
       aria-label="Play audio"
-      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200 hover:text-slate-900 ${sizeCls} ${className}`}
+      className={cn('rounded-full', className)}
     >
-      🔊
-    </button>
+      <Volume2 className={size === 'sm' ? 'size-3' : 'size-4'} />
+    </Button>
   );
 }

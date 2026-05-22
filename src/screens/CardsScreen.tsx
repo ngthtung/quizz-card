@@ -1,18 +1,89 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useMemo, useState } from 'react';
-import { PageHeader } from '../components/PageHeader';
-import { Button } from '../components/Button';
-import { Modal } from '../components/Modal';
-import { TextArea, TextField } from '../components/TextField';
-import { SpeakButton } from '../components/SpeakButton';
-import { pronunciationFor } from '../lib/speech';
-import { db } from '../db/db';
+import { useEffect, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
+import {
+  Inbox,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from 'lucide-react';
+import { PageHeader, PageShell } from '@/components/PageHeader';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { SpeakButton } from '@/components/SpeakButton';
+import { Furigana } from '@/components/Furigana';
+import { pronunciationFor } from '@/lib/speech';
+import { db } from '@/db/db';
 import {
   createFlashcard,
   deleteFlashcard,
   updateFlashcard,
-} from '../db/flashcards';
-import type { Flashcard, Language } from '../types';
+} from '@/db/flashcards';
+import {
+  cardFormSchema,
+  emptyCardFormValues,
+  type CardFormValues,
+} from '@/lib/schemas';
+import type { Flashcard, Language } from '@/types';
 
 type EditorState =
   | { mode: 'create' }
@@ -29,10 +100,11 @@ export function CardsScreen() {
     [],
   );
 
-  const [languageFilter, setLanguageFilter] = useState<string>('');
-  const [tagFilter, setTagFilter] = useState<string>('');
+  const [languageFilter, setLanguageFilter] = useState<string>('all');
+  const [tagFilter, setTagFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [editor, setEditor] = useState<EditorState>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Flashcard | null>(null);
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -42,8 +114,9 @@ export function CardsScreen() {
 
   const filtered = useMemo(() => {
     return (cards ?? []).filter((c) => {
-      if (languageFilter && c.languageId !== languageFilter) return false;
-      if (tagFilter && !c.tags.includes(tagFilter)) return false;
+      if (languageFilter !== 'all' && c.languageId !== languageFilter)
+        return false;
+      if (tagFilter !== 'all' && !c.tags.includes(tagFilter)) return false;
       if (search) {
         const q = search.toLowerCase();
         const hay = [
@@ -68,177 +141,122 @@ export function CardsScreen() {
     return m;
   }, [languages]);
 
-  const noLanguages = !languages || languages.length === 0;
+  const noLanguages = languages !== undefined && languages.length === 0;
+  const loading = cards === undefined || languages === undefined;
+
+  const newCardButton = (
+    <Button
+      onClick={() => setEditor({ mode: 'create' })}
+      disabled={noLanguages}
+    >
+      <Plus />
+      New card
+    </Button>
+  );
 
   return (
     <>
       <PageHeader
         title="Cards"
         actions={
-          <Button
-            onClick={() => setEditor({ mode: 'create' })}
-            disabled={noLanguages}
-          >
-            + New card
-          </Button>
+          noLanguages ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span tabIndex={0}>{newCardButton}</span>
+              </TooltipTrigger>
+              <TooltipContent>Create a language first</TooltipContent>
+            </Tooltip>
+          ) : (
+            newCardButton
+          )
         }
       />
-
-      <div className="px-4 py-4 md:px-6">
-        {noLanguages ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Create a language first to add cards.
-          </div>
-        ) : (
-          <div className="mb-4 grid gap-2 md:grid-cols-3">
-            <select
-              value={languageFilter}
-              onChange={(e) => setLanguageFilter(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">All languages</option>
-              {languages?.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-            <select
+      <PageShell>
+        {!loading && !noLanguages ? (
+          <div className="mb-4 grid gap-2 md:grid-cols-[200px_200px_1fr]">
+            <Select value={languageFilter} onValueChange={setLanguageFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="All languages" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All languages</SelectItem>
+                {languages?.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
               value={tagFilter}
-              onChange={(e) => setTagFilter(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              onValueChange={setTagFilter}
               disabled={allTags.length === 0}
             >
-              <option value="">All tags</option>
-              {allTags.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-            <input
-              type="search"
-              placeholder="Search…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-            />
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="All tags" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All tags</SelectItem>
+                {allTags.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="relative">
+              <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+              <Input
+                type="search"
+                placeholder="Search cards…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
           </div>
-        )}
-
-        {!noLanguages && filtered.length === 0 ? (
-          <p className="text-slate-600">No cards match.</p>
         ) : null}
 
-        <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((c) => {
-            const lang = langById[c.languageId];
-            return (
-              <li
-                key={c.id}
-                className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-2">
-                    {c.mainText ? (
-                      <SpeakButton
-                        text={c.mainText}
-                        pronunciation={pronunciationFor(c, lang)}
-                        languageName={lang?.name}
-                        fieldKey="mainText"
-                      />
-                    ) : null}
-                    <div>
-                      <p className="text-lg font-semibold">
-                        {c.mainText || (
-                          <span className="text-slate-400">(no main text)</span>
-                        )}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {lang?.name ?? '—'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="secondary"
-                      onClick={() => setEditor({ mode: 'edit', card: c })}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="danger"
-                      onClick={() => {
-                        if (confirm('Delete this card?')) {
-                          void deleteFlashcard(c.id);
-                        }
-                      }}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-
-                <dl className="mt-3 space-y-1 text-sm">
-                  {(['variant1', 'variant2', 'variant3'] as const).map((k) => {
-                    const value = c[k];
-                    if (!value) return null;
-                    return (
-                      <div
-                        key={k}
-                        className="flex items-center justify-between gap-2"
-                      >
-                        <dt className="text-slate-400">
-                          {lang?.fieldLabels[k] ?? k}
-                        </dt>
-                        <dd className="flex items-center gap-2 text-right font-medium text-slate-700">
-                          <span>{value}</span>
-                          <SpeakButton
-                            text={value}
-                            languageName={lang?.name}
-                            size="sm"
-                          />
-                        </dd>
-                      </div>
-                    );
-                  })}
-                  {c.meaning ? (
-                    <div className="flex items-start justify-between gap-2 border-t border-slate-100 pt-1">
-                      <dt className="text-slate-400">
-                        {lang?.fieldLabels.meaning ?? 'Meaning'}
-                      </dt>
-                      <dd className="text-right font-medium text-slate-800">
-                        {c.meaning}
-                      </dd>
-                    </div>
-                  ) : null}
-                </dl>
-
-                {c.tags.length > 0 ? (
-                  <div className="mt-3 flex flex-wrap gap-1">
-                    {c.tags.map((t) => (
-                      <span
-                        key={t}
-                        className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-
-                {c.notes ? (
-                  <p className="mt-3 text-xs text-slate-500">{c.notes}</p>
-                ) : null}
-
-                <p className="mt-3 text-xs text-slate-400">
-                  ✅ {c.rememberedCount} · ❌ {c.forgottenCount}
-                </p>
+        {loading ? (
+          <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <li key={i}>
+                <Card>
+                  <CardHeader>
+                    <Skeleton className="h-6 w-32" />
+                    <Skeleton className="h-4 w-20" />
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </CardContent>
+                </Card>
               </li>
-            );
-          })}
-        </ul>
-      </div>
+            ))}
+          </ul>
+        ) : noLanguages ? (
+          <NoLanguagesState />
+        ) : (cards?.length ?? 0) === 0 ? (
+          <EmptyCardsState onCreate={() => setEditor({ mode: 'create' })} />
+        ) : filtered.length === 0 ? (
+          <p className="text-muted-foreground py-12 text-center text-sm">
+            No cards match your filters.
+          </p>
+        ) : (
+          <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((c) => (
+              <li key={c.id}>
+                <CardRow
+                  card={c}
+                  language={langById[c.languageId]}
+                  onEdit={() => setEditor({ mode: 'edit', card: c })}
+                  onDelete={() => setDeleteTarget(c)}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </PageShell>
 
       {editor && languages ? (
         <CardEditor
@@ -247,7 +265,185 @@ export function CardsScreen() {
           onClose={() => setEditor(null)}
         />
       ) : null}
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this card?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{deleteTarget?.mainText || '(no main text)'}" will be removed
+              permanently.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!deleteTarget) return;
+                await deleteFlashcard(deleteTarget.id);
+                toast.success('Card deleted');
+                setDeleteTarget(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
+  );
+}
+
+function CardRow({
+  card,
+  language,
+  onEdit,
+  onDelete,
+}: {
+  card: Flashcard;
+  language: Language | undefined;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <Card className="h-full">
+      <CardHeader>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            {card.mainText ? (
+              <SpeakButton
+                text={card.mainText}
+                pronunciation={pronunciationFor(card, language)}
+                languageName={language?.name}
+                fieldKey="mainText"
+                size="sm"
+              />
+            ) : null}
+            <div className="min-w-0">
+              <CardTitle className="truncate text-lg">
+                {card.mainText ? (
+                  <Furigana
+                    text={card.mainText}
+                    enabled={language?.name?.toLowerCase() === 'japanese'}
+                  />
+                ) : (
+                  <span className="text-muted-foreground">(no main text)</span>
+                )}
+              </CardTitle>
+              <Badge variant="secondary" className="mt-1">
+                {language?.name ?? '—'}
+              </Badge>
+            </div>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="Card actions"
+              >
+                <MoreVertical />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onEdit}>
+                <Pencil />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                <Trash2 />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </CardHeader>
+
+      <CardContent>
+        <dl className="space-y-1 text-sm">
+          {(['variant1', 'variant2', 'variant3'] as const).map((k) => {
+            const value = card[k];
+            if (!value) return null;
+            return (
+              <div
+                key={k}
+                className="flex items-center justify-between gap-2"
+              >
+                <dt className="text-muted-foreground text-xs">
+                  {language?.fieldLabels[k] ?? k}
+                </dt>
+                <dd className="text-foreground text-right font-medium">
+                  {value}
+                </dd>
+              </div>
+            );
+          })}
+          {card.meaning ? (
+            <div className="border-border flex items-start justify-between gap-2 border-t pt-1.5">
+              <dt className="text-muted-foreground text-xs">
+                {language?.fieldLabels.meaning ?? 'Meaning'}
+              </dt>
+              <dd className="text-right font-medium">{card.meaning}</dd>
+            </div>
+          ) : null}
+        </dl>
+
+        {card.tags.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-1">
+            {card.tags.map((t) => (
+              <Badge key={t} variant="outline">
+                {t}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
+
+        {card.notes ? (
+          <p className="text-muted-foreground mt-3 text-xs italic">
+            {card.notes}
+          </p>
+        ) : null}
+      </CardContent>
+
+      <CardFooter className="text-muted-foreground text-xs">
+        <span className="text-emerald-600">✓ {card.rememberedCount}</span>
+        <span className="px-2">·</span>
+        <span className="text-destructive">✕ {card.forgottenCount}</span>
+      </CardFooter>
+    </Card>
+  );
+}
+
+function NoLanguagesState() {
+  return (
+    <div className="border-border bg-card flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-center">
+      <Inbox className="text-muted-foreground size-10" />
+      <p className="mt-3 text-base font-medium">No languages yet</p>
+      <p className="text-muted-foreground mt-1 text-sm">
+        Create a language on the Languages screen first.
+      </p>
+    </div>
+  );
+}
+
+function EmptyCardsState({ onCreate }: { onCreate: () => void }) {
+  return (
+    <div className="border-border bg-card flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-center">
+      <Inbox className="text-muted-foreground size-10" />
+      <p className="mt-3 text-base font-medium">No cards yet</p>
+      <p className="text-muted-foreground mt-1 text-sm">
+        Add your first card to start studying.
+      </p>
+      <Button className="mt-4" onClick={onCreate}>
+        <Plus />
+        Add your first card
+      </Button>
+    </div>
   );
 }
 
@@ -263,163 +459,222 @@ function CardEditor({
   const isEdit = state.mode === 'edit';
   const initial = isEdit ? state.card : null;
 
-  const [languageId, setLanguageId] = useState(
-    initial?.languageId ?? languages[0]?.id ?? '',
-  );
-  const [mainText, setMainText] = useState(initial?.mainText ?? '');
-  const [variant1, setVariant1] = useState(initial?.variant1 ?? '');
-  const [variant2, setVariant2] = useState(initial?.variant2 ?? '');
-  const [variant3, setVariant3] = useState(initial?.variant3 ?? '');
-  const [meaning, setMeaning] = useState(initial?.meaning ?? '');
-  const [notes, setNotes] = useState(initial?.notes ?? '');
-  const [tagsRaw, setTagsRaw] = useState(initial?.tags.join(', ') ?? '');
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const form = useForm<CardFormValues>({
+    resolver: zodResolver(cardFormSchema),
+    defaultValues: initial
+      ? {
+          languageId: initial.languageId,
+          mainText: initial.mainText,
+          variant1: initial.variant1,
+          variant2: initial.variant2,
+          variant3: initial.variant3,
+          meaning: initial.meaning,
+          notes: initial.notes ?? '',
+          tagsRaw: initial.tags.join(', '),
+        }
+      : emptyCardFormValues(languages[0]?.id ?? ''),
+  });
 
+  // Reset when switching between create/edit targets
+  useEffect(() => {
+    if (initial) {
+      form.reset({
+        languageId: initial.languageId,
+        mainText: initial.mainText,
+        variant1: initial.variant1,
+        variant2: initial.variant2,
+        variant3: initial.variant3,
+        meaning: initial.meaning,
+        notes: initial.notes ?? '',
+        tagsRaw: initial.tags.join(', '),
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial?.id]);
+
+  const languageId = form.watch('languageId');
   const lang = languages.find((l) => l.id === languageId);
 
-  async function onSave() {
-    if (
-      ![mainText, variant1, variant2, variant3, meaning].some((v) => v.trim())
-    ) {
-      setErr('Fill at least one field');
-      return;
-    }
-    const tags = tagsRaw
+  async function onSubmit(values: CardFormValues) {
+    const tags = values.tagsRaw
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean);
-
-    setBusy(true);
     try {
       if (isEdit && initial) {
         await updateFlashcard(initial.id, {
-          languageId,
-          mainText: mainText.trim(),
-          variant1: variant1.trim(),
-          variant2: variant2.trim(),
-          variant3: variant3.trim(),
-          meaning: meaning.trim(),
-          notes: notes.trim() || undefined,
+          languageId: values.languageId,
+          mainText: values.mainText.trim(),
+          variant1: values.variant1.trim(),
+          variant2: values.variant2.trim(),
+          variant3: values.variant3.trim(),
+          meaning: values.meaning.trim(),
+          notes: values.notes.trim() || undefined,
           tags,
         });
+        toast.success('Card updated');
       } else {
         await createFlashcard({
-          languageId,
-          mainText,
-          variant1,
-          variant2,
-          variant3,
-          meaning,
-          notes,
+          languageId: values.languageId,
+          mainText: values.mainText,
+          variant1: values.variant1,
+          variant2: values.variant2,
+          variant3: values.variant3,
+          meaning: values.meaning,
+          notes: values.notes,
           tags,
         });
+        toast.success('Card created');
       }
       onClose();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Failed to save');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function onDelete() {
-    if (!isEdit || !initial) return;
-    if (!confirm('Delete this card?')) return;
-    setBusy(true);
-    try {
-      await deleteFlashcard(initial.id);
-      onClose();
-    } finally {
-      setBusy(false);
+      toast.error(e instanceof Error ? e.message : 'Save failed');
     }
   }
 
   return (
-    <Modal
-      open
-      onClose={onClose}
-      title={isEdit ? 'Edit card' : 'New card'}
-      footer={
-        <>
-          {isEdit ? (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? 'Edit card' : 'New card'}</DialogTitle>
+          <DialogDescription>
+            Fill at least one variant or meaning field.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form
+            id="card-form"
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-3"
+          >
+            <FormField
+              control={form.control}
+              name="languageId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Language</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Choose…" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {languages.map((l) => (
+                        <SelectItem key={l.id} value={l.id}>
+                          {l.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="mainText"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {lang?.fieldLabels.mainText ?? 'Main text'}
+                  </FormLabel>
+                  <FormControl>
+                    <Input autoFocus {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {(['variant1', 'variant2', 'variant3', 'meaning'] as const).map(
+              (k) => (
+                <FormField
+                  key={k}
+                  control={form.control}
+                  name={k}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{lang?.fieldLabels[k] ?? k}</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder={
+                            k === 'meaning' ? 'Nghĩa / meaning' : undefined
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ),
+            )}
+            <FormField
+              control={form.control}
+              name="tagsRaw"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tags (comma-separated)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="daily, greeting" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl>
+                    <Textarea rows={3} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </form>
+        </Form>
+        <DialogFooter className="sm:justify-between">
+          {isEdit && initial ? (
             <Button
-              variant="danger"
-              onClick={onDelete}
-              disabled={busy}
-              className="mr-auto"
+              variant="outline"
+              type="button"
+              className="text-destructive hover:bg-destructive/10"
+              disabled={form.formState.isSubmitting}
+              onClick={async () => {
+                await deleteFlashcard(initial.id);
+                toast.success('Card deleted');
+                onClose();
+              }}
             >
+              <Trash2 />
               Delete
             </Button>
-          ) : null}
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button onClick={onSave} disabled={busy}>
-            Save
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-3">
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">
-            Language
-          </span>
-          <select
-            value={languageId}
-            onChange={(e) => setLanguageId(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-          >
-            {languages.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <TextField
-          label={lang?.fieldLabels.mainText ?? 'Main text'}
-          value={mainText}
-          onChange={(e) => setMainText(e.target.value)}
-          autoFocus
-        />
-        <TextField
-          label={lang?.fieldLabels.variant1 ?? 'Variant 1'}
-          value={variant1}
-          onChange={(e) => setVariant1(e.target.value)}
-        />
-        <TextField
-          label={lang?.fieldLabels.variant2 ?? 'Variant 2'}
-          value={variant2}
-          onChange={(e) => setVariant2(e.target.value)}
-        />
-        <TextField
-          label={lang?.fieldLabels.variant3 ?? 'Variant 3'}
-          value={variant3}
-          onChange={(e) => setVariant3(e.target.value)}
-        />
-        <TextField
-          label={lang?.fieldLabels.meaning ?? 'Meaning'}
-          value={meaning}
-          onChange={(e) => setMeaning(e.target.value)}
-          placeholder="Nghĩa / meaning"
-        />
-        <TextField
-          label="Tags (comma-separated)"
-          value={tagsRaw}
-          onChange={(e) => setTagsRaw(e.target.value)}
-          placeholder="daily, greeting"
-        />
-        <TextArea
-          label="Notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={3}
-        />
-        {err ? <p className="text-sm text-red-600">{err}</p> : null}
-      </div>
-    </Modal>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={onClose}
+              disabled={form.formState.isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="card-form"
+              disabled={form.formState.isSubmitting}
+            >
+              Save
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
