@@ -254,6 +254,14 @@ export function WriteMode({
               </p>
             ) : null}
           </div>
+          {question.card.meaning && (
+            <div className="bg-muted/50 rounded-lg border px-4 py-3">
+              <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                Meaning
+              </p>
+              <p className="mt-1 text-sm font-medium">{question.card.meaning}</p>
+            </div>
+          )}
           <Button ref={nextRef} size="lg" className="w-full" onClick={next}>
             Next question
             <ArrowRight />

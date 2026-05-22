@@ -5,6 +5,13 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { FieldKey } from '@/types';
 
+function cleanForSpeech(text: string): string {
+  return text
+    .replace(/[～〜~]/g, '') // Remove placeholder tildes
+    .replace(/[［\[（(][^］\]）)]*[］\]）)]/g, '') // Remove bracketed text like (reading)
+    .trim();
+}
+
 export function SpeakButton({
   text,
   pronunciation,
@@ -21,7 +28,8 @@ export function SpeakButton({
   className?: string;
 }) {
   const { kanjiAudioEnabled } = useSettings();
-  const spoken = (pronunciation && pronunciation.trim()) || text;
+  const rawSpoken = (pronunciation && pronunciation.trim()) || text;
+  const spoken = cleanForSpeech(rawSpoken);
   if (!speechSupported || !spoken) return null;
   if (
     fieldKey === 'mainText' &&
@@ -30,6 +38,8 @@ export function SpeakButton({
   ) {
     return null;
   }
+
+  const ariaLabel = `Play audio: ${spoken}`;
 
   return (
     <Button
@@ -40,8 +50,8 @@ export function SpeakButton({
         e.stopPropagation();
         speak(spoken, languageName);
       }}
-      title="Play audio"
-      aria-label="Play audio"
+      title={ariaLabel}
+      aria-label={ariaLabel}
       className={cn('rounded-full', className)}
     >
       <Volume2 className={size === 'sm' ? 'size-3' : 'size-4'} />
