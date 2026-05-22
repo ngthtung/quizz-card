@@ -1,85 +1,46 @@
-import kuromoji from 'kuromoji';
+import { romajiToHiragana } from './kana';
+import type { Flashcard } from '@/types';
 
-type KuromojiToken = {
-  surface_form: string;
-  reading?: string;
-  pos: string;
-};
+/**
+ * Format kanji with hiragana reading in parentheses
+ * Example: formatWithReading("辞書", "jisho") -> "辞書(じしょ)"
+ */
+export function formatWithReading(
+  kanji: string,
+  reading: string | undefined,
+): string {
+  if (!kanji) return '';
+  if (!reading) return kanji;
 
-type Tokenizer = {
-  tokenize: (text: string) => KuromojiToken[];
-};
+  // Check if kanji actually contains kanji characters
+  const hasKanji = /[一-龯]/.test(kanji);
+  if (!hasKanji) return kanji;
 
-let tokenizerInstance: Tokenizer | null = null;
-let initPromise: Promise<Tokenizer> | null = null;
+  // Convert romaji to hiragana if needed
+  const hiragana = /[ぁ-ん]/.test(reading)
+    ? reading
+    : romajiToHiragana(reading);
 
-export async function getTokenizer(): Promise<Tokenizer> {
-  if (tokenizerInstance) return tokenizerInstance;
-  if (initPromise) return initPromise;
-
-  initPromise = new Promise((resolve, reject) => {
-    kuromoji
-      .builder({ dicPath: '/dict/' })
-      .build((err: Error | null, tokenizer: Tokenizer) => {
-        if (err) {
-          reject(err);
-        } else {
-          tokenizerInstance = tokenizer;
-          resolve(tokenizer);
-        }
-      });
-  });
-
-  return initPromise;
-}
-
-function hasKanji(text: string): boolean {
-  // Check if text contains kanji (CJK Unified Ideographs)
-  return /[一-龯]/.test(text);
-}
-
-function katakanaToHiragana(str: string): string {
-  return str.replace(/[ァ-ヶ]/g, (match) => {
-    const chr = match.charCodeAt(0) - 0x60;
-    return String.fromCharCode(chr);
-  });
+  return `${kanji}(${hiragana})`;
 }
 
 /**
- * Convert kanji text to format: KANJI(hiragana)
- * Example: "今日は" -> "今日(きょう)は"
+ * Get formatted text for a flashcard field with reading
  */
+export function getFormattedText(card: Flashcard, field: 'mainText'): string {
+  const text = card[field];
+  if (!text) return '';
+
+  // Try variant2 (hiragana) first, then variant1 (romaji)
+  const reading = card.variant2 || card.variant1;
+  return formatWithReading(text, reading);
+}
+
+// Legacy exports for compatibility
 export async function addFurigana(text: string): Promise<string> {
-  if (!text || !hasKanji(text)) return text;
-
-  try {
-    const tokenizer = await getTokenizer();
-    const tokens = tokenizer.tokenize(text);
-
-    let result = '';
-    for (const token of tokens) {
-      const word = token.surface_form;
-
-      // If the word has kanji and a reading is available
-      if (hasKanji(word) && token.reading) {
-        const reading = katakanaToHiragana(token.reading);
-        result += `${word}(${reading})`;
-      } else {
-        result += word;
-      }
-    }
-
-    return result;
-  } catch (error) {
-    console.error('Furigana conversion error:', error);
-    return text;
-  }
+  return text;
 }
 
-/**
- * Synchronous version that returns original text if not ready
- * Use this for immediate display, then replace with async version
- */
 export function addFuriganaSync(text: string): string {
-  return text; // Fallback to original text
+  return text;
 }

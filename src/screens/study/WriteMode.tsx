@@ -11,16 +11,28 @@ import { Furigana } from '@/components/Furigana';
 import { pronunciationFor } from '@/lib/speech';
 import { buildWriteQuestion, type WriteQuestion } from '@/lib/study';
 import { isAnswerCorrect } from '@/lib/answerMatch';
+import { matchesScope, type Scope } from '@/lib/datasets';
 import { cn } from '@/lib/utils';
 
-export function WriteMode({ languageId }: { languageId: string }) {
+export function WriteMode({
+  languageId,
+  scope,
+}: {
+  languageId: string;
+  scope: Scope;
+}) {
   const language = useLiveQuery(
     () => db.languages.get(languageId),
     [languageId],
   );
   const cards = useLiveQuery(
-    () => db.flashcards.where('languageId').equals(languageId).toArray(),
-    [languageId],
+    () =>
+      db.flashcards
+        .where('languageId')
+        .equals(languageId)
+        .filter((c) => matchesScope(c, scope))
+        .toArray(),
+    [languageId, scope],
   );
 
   const isJapanese = language?.name?.toLowerCase() === 'japanese';
@@ -69,6 +81,7 @@ export function WriteMode({ languageId }: { languageId: string }) {
     const fresh = await db.flashcards
       .where('languageId')
       .equals(languageId)
+      .filter((c) => matchesScope(c, scope))
       .toArray();
     setReviewed((n) => n + 1);
     setQuestion(buildWriteQuestion(fresh, { isJapanese }));

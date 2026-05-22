@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowLeft, Keyboard, Layers, Target } from 'lucide-react';
 import { PageHeader, PageShell } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,13 @@ import { db } from '@/db/db';
 import { SwipeMode } from './study/SwipeMode';
 import { MultipleChoiceMode } from './study/MultipleChoiceMode';
 import { WriteMode } from './study/WriteMode';
+import { ScopePicker } from '@/components/ScopePicker';
+import {
+  groupTagsForLanguage,
+  loadSavedScope,
+  saveScope,
+  type Scope,
+} from '@/lib/datasets';
 
 type Mode = 'swipe' | 'mc' | 'write';
 
@@ -33,23 +40,40 @@ const MODE_TITLES: Record<Mode, string> = {
   write: 'Write study',
 };
 
-type Session = { mode: Mode; languageId: string };
+type Session = { mode: Mode; languageId: string; scope: Scope };
 
 export function StudyScreen() {
   const languages = useLiveQuery(
     () => db.languages.orderBy('name').toArray(),
     [],
   );
-  const cardCounts = useLiveQuery(async () => {
-    const all = await db.flashcards.toArray();
+  const allCards = useLiveQuery(() => db.flashcards.toArray(), []);
+
+  const cardCounts = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const c of all) map[c.languageId] = (map[c.languageId] ?? 0) + 1;
+    for (const c of allCards ?? []) {
+      map[c.languageId] = (map[c.languageId] ?? 0) + 1;
+    }
     return map;
-  }, []);
+  }, [allCards]);
 
   const [mode, setMode] = useState<Mode>('swipe');
   const [languageId, setLanguageId] = useState<string>('');
   const [session, setSession] = useState<Session | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const datasets = useMemo(
+    () =>
+      languageId && allCards
+        ? groupTagsForLanguage(languageId, allCards)
+        : [],
+    [languageId, allCards],
+  );
+
+  const initialScope: Scope = useMemo(() => {
+    if (!languageId) return null;
+    return loadSavedScope(languageId, datasets);
+  }, [languageId, datasets]);
 
   if (session) {
     return (
@@ -64,18 +88,31 @@ export function StudyScreen() {
           }
         />
         {session.mode === 'swipe' ? (
-          <SwipeMode languageId={session.languageId} />
+          <SwipeMode languageId={session.languageId} scope={session.scope} />
         ) : session.mode === 'mc' ? (
-          <MultipleChoiceMode languageId={session.languageId} />
+          <MultipleChoiceMode
+            languageId={session.languageId}
+            scope={session.scope}
+          />
         ) : (
-          <WriteMode languageId={session.languageId} />
+          <WriteMode languageId={session.languageId} scope={session.scope} />
         )}
       </>
     );
   }
 
   const noLanguages = languages !== undefined && languages.length === 0;
-  const availableCount = languageId ? (cardCounts?.[languageId] ?? 0) : 0;
+  const availableCount = languageId ? (cardCounts[languageId] ?? 0) : 0;
+
+  function onStart() {
+    if (!languageId) return;
+    setPickerOpen(true);
+  }
+
+  function onConfirmScope(scope: Scope) {
+    saveScope(languageId, scope);
+    setSession({ mode, languageId, scope });
+  }
 
   return (
     <>
@@ -153,7 +190,7 @@ export function StudyScreen() {
                   size="lg"
                   className="w-full"
                   disabled={!languageId || availableCount === 0}
-                  onClick={() => setSession({ mode, languageId })}
+                  onClick={onStart}
                 >
                   Start session
                 </Button>
@@ -162,6 +199,18 @@ export function StudyScreen() {
           </div>
         )}
       </PageShell>
+
+      {languageId && allCards ? (
+        <ScopePicker
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          languageId={languageId}
+          datasets={datasets}
+          cards={allCards}
+          initialScope={initialScope}
+          onConfirm={onConfirmScope}
+        />
+      ) : null}
     </>
   );
 }

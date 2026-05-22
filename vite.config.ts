@@ -9,19 +9,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      'zlibjs/bin/gunzip.min.js': path.resolve(__dirname, './src/lib/zlib-shim.ts'),
     },
-  },
-  define: {
-    global: 'globalThis',
-    'process.env': {},
-  },
-  optimizeDeps: {
-    esbuildOptions: {
-      define: {
-        global: 'globalThis',
-      },
-    },
-    include: ['kuromoji'],
   },
 })

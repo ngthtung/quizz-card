@@ -11,18 +11,30 @@ import { SpeakButton } from '@/components/SpeakButton';
 import { Furigana } from '@/components/Furigana';
 import { pronunciationFor } from '@/lib/speech';
 import { nonEmptyFields, pickRandom, pickWeighted } from '@/lib/study';
+import { matchesScope, type Scope } from '@/lib/datasets';
 import type { FieldKey, Flashcard, Language } from '@/types';
 
 const SWIPE_THRESHOLD = 110;
 
-export function SwipeMode({ languageId }: { languageId: string }) {
+export function SwipeMode({
+  languageId,
+  scope,
+}: {
+  languageId: string;
+  scope: Scope;
+}) {
   const language = useLiveQuery(
     () => db.languages.get(languageId),
     [languageId],
   );
   const cards = useLiveQuery(
-    () => db.flashcards.where('languageId').equals(languageId).toArray(),
-    [languageId],
+    () =>
+      db.flashcards
+        .where('languageId')
+        .equals(languageId)
+        .filter((c) => matchesScope(c, scope))
+        .toArray(),
+    [languageId, scope],
   );
 
   const [current, setCurrent] = useState<{
@@ -53,6 +65,7 @@ export function SwipeMode({ languageId }: { languageId: string }) {
     const updated = await db.flashcards
       .where('languageId')
       .equals(languageId)
+      .filter((c) => matchesScope(c, scope))
       .toArray();
     setReviewed((n) => n + 1);
     setCurrent(nextCard(updated));

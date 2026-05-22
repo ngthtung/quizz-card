@@ -9,6 +9,7 @@ import { SpeakButton } from '@/components/SpeakButton';
 import { Furigana } from '@/components/Furigana';
 import { pronunciationFor } from '@/lib/speech';
 import { nonEmptyFields, pickRandom, pickWeighted, shuffle } from '@/lib/study';
+import { matchesScope, type Scope } from '@/lib/datasets';
 import { cn } from '@/lib/utils';
 import type { FieldKey, Flashcard } from '@/types';
 
@@ -17,17 +18,29 @@ type Question = {
   questionField: FieldKey;
   answerField: FieldKey;
   choices: string[];
+  choiceCards: (Flashcard | null)[]; // Card for each choice
   correctIndex: number;
 };
 
-export function MultipleChoiceMode({ languageId }: { languageId: string }) {
+export function MultipleChoiceMode({
+  languageId,
+  scope,
+}: {
+  languageId: string;
+  scope: Scope;
+}) {
   const language = useLiveQuery(
     () => db.languages.get(languageId),
     [languageId],
   );
   const cards = useLiveQuery(
-    () => db.flashcards.where('languageId').equals(languageId).toArray(),
-    [languageId],
+    () =>
+      db.flashcards
+        .where('languageId')
+        .equals(languageId)
+        .filter((c) => matchesScope(c, scope))
+        .toArray(),
+    [languageId, scope],
   );
 
   const [question, setQuestion] = useState<Question | null>(null);
@@ -52,6 +65,7 @@ export function MultipleChoiceMode({ languageId }: { languageId: string }) {
     const fresh = await db.flashcards
       .where('languageId')
       .equals(languageId)
+      .filter((c) => matchesScope(c, scope))
       .toArray();
     setReviewed((n) => n + 1);
     setQuestion(buildQuestion(fresh));
@@ -100,6 +114,7 @@ export function MultipleChoiceMode({ languageId }: { languageId: string }) {
           <p className="text-3xl font-semibold wrap-break-word">
             <Furigana
               text={question.card[question.questionField]}
+              card={question.card}
               enabled={isJa && question.questionField === 'mainText'}
             />
           </p>
@@ -134,37 +149,52 @@ export function MultipleChoiceMode({ languageId }: { languageId: string }) {
                 : isPicked
                   ? 'border-destructive bg-destructive/10 ring-2 ring-destructive'
                   : 'bg-card border-border opacity-60';
-          return (
-            <button
-              key={i}
-              type="button"
-              onClick={() => picked === null && onPick(i)}
-              className={cn(
-                'flex min-h-12 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-base transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                cls,
-                picked !== null && 'cursor-default',
-              )}
-            >
+
+          const content = (
+            <>
               <span className="bg-muted text-foreground flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold">
                 {String.fromCharCode(65 + i)}
               </span>
               <span className="flex-1 wrap-break-word">
                 <Furigana
                   text={c}
+                  card={question.choiceCards[i] || undefined}
                   enabled={isJa && question.answerField === 'mainText'}
                 />
               </span>
               {picked !== null && question.answerField !== 'meaning' ? (
-                <span onClick={(e) => e.stopPropagation()}>
-                  <SpeakButton
-                    text={c}
-                    languageName={language.name}
-                    fieldKey={question.answerField}
-                    size="sm"
-                  />
-                </span>
+                <SpeakButton
+                  text={c}
+                  languageName={language.name}
+                  fieldKey={question.answerField}
+                  size="sm"
+                />
               ) : null}
+            </>
+          );
+
+          return picked === null ? (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onPick(i)}
+              className={cn(
+                'flex min-h-12 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-base transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                cls,
+              )}
+            >
+              {content}
             </button>
+          ) : (
+            <div
+              key={i}
+              className={cn(
+                'flex min-h-12 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-base',
+                cls,
+              )}
+            >
+              {content}
+            </div>
           );
         })}
       </div>
@@ -191,14 +221,29 @@ function buildQuestion(cards: Flashcard[]): Question | null {
   const answerField = pickRandom(answerCandidates);
 
   const correct = card[answerField];
-  const distractorPool = cards
-    .filter((c) => c.id !== card.id && c[answerField])
-    .map((c) => c[answerField] as string)
-    .filter((v) => v !== correct);
 
-  const distractors = shuffle([...new Set(distractorPool)]).slice(0, 3);
-  const allChoices = shuffle([correct, ...distractors]);
+  // Build distractor pool with card references
+  const distractorCardsPool = cards
+    .filter((c) => c.id !== card.id && c[answerField])
+    .filter((c) => c[answerField] !== correct);
+
+  const distractorCards = shuffle(distractorCardsPool).slice(0, 3);
+  const distractors = distractorCards.map((c) => c[answerField] as string);
+
+  // Create choices with corresponding cards
+  const choicesWithCards: Array<{ text: string; card: Flashcard | null }> = [
+    { text: correct, card },
+    ...distractors.map((text, idx) => ({
+      text,
+      card: answerField === 'mainText' ? distractorCards[idx] : null
+    })),
+  ];
+
+  // Shuffle everything together
+  const shuffled = shuffle(choicesWithCards);
+  const allChoices = shuffled.map((c) => c.text);
+  const choiceCards = shuffled.map((c) => c.card);
   const correctIndex = allChoices.indexOf(correct);
 
-  return { card, questionField, answerField, choices: allChoices, correctIndex };
+  return { card, questionField, answerField, choices: allChoices, choiceCards, correctIndex };
 }
