@@ -27,6 +27,7 @@ import {
 import { db } from '@/db/db';
 import { setKanjiAudioEnabled, useSettings } from '@/lib/settings';
 import { looksLikeRomaji, romajiToHiragana } from '@/lib/kana';
+import { deleteKanaAlphabetCards } from '@/lib/deleteKanaCards';
 
 export function SettingsScreen() {
   const [busy, setBusy] = useState(false);
@@ -102,6 +103,22 @@ export function SettingsScreen() {
     }
   }
 
+  async function onDeleteKanaCards() {
+    setBusy(true);
+    try {
+      const count = await deleteKanaAlphabetCards();
+      if (count === 0) {
+        toast.info('No kana alphabet cards found.');
+      } else {
+        toast.success(`Deleted ${count} kana alphabet card(s).`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Delete failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onReset() {
     setBusy(true);
     try {
@@ -170,6 +187,26 @@ export function SettingsScreen() {
               >
                 <Sparkles />
                 Fill from Romaji
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Delete Kana Alphabet Cards</CardTitle>
+              <CardDescription>
+                Remove all hiragana and katakana alphabet learning cards (single
+                kana characters like あ, い, ア, イ, etc.)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="outline"
+                onClick={onDeleteKanaCards}
+                disabled={busy}
+              >
+                <Trash2 />
+                Delete Kana Cards
               </Button>
             </CardContent>
           </Card>

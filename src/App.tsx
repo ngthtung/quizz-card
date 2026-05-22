@@ -4,6 +4,7 @@ import { CardsScreen } from '@/screens/CardsScreen';
 import { StudyScreen } from '@/screens/StudyScreen';
 import { LanguagesScreen } from '@/screens/LanguagesScreen';
 import { ImportScreen } from '@/screens/ImportScreen';
+import { AutoImportScreen } from '@/screens/AutoImportScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';

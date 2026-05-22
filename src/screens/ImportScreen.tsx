@@ -1,15 +1,13 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   AlertCircle,
   CheckCircle2,
-  FileDown,
-  FileText,
+  Trash2,
   Upload,
 } from 'lucide-react';
 import { PageHeader, PageShell } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import {
@@ -19,41 +17,32 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import {
   importRows,
-  rowsFromCsv,
-  rowsFromJson,
   type ImportResult,
 } from '@/lib/import';
 import { listLessons } from '@/lib/markdownLessons';
-
-const SAMPLE_CSV = `language,mainText,variant1,variant2,variant3,meaning,notes,tags
-Japanese,今日は,konnichiwa,こんにちわ,コンニチワ,xin chào,Greeting,"daily,greeting"`;
-
-const SAMPLE_JSON = `[
-  {
-    "language": "Japanese",
-    "mainText": "今日は",
-    "variant1": "konnichiwa",
-    "variant2": "こんにちわ",
-    "variant3": "コンニチワ",
-    "meaning": "xin chào",
-    "notes": "Greeting",
-    "tags": ["daily", "greeting"]
-  }
-]`;
-
-type Format = 'csv' | 'json';
+import { db } from '@/db/db';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
+import '@/lib/debug-db';
 
 export function ImportScreen() {
-  const [format, setFormat] = useState<Format>('csv');
-  const [text, setText] = useState('');
   const [result, setResult] = useState<ImportResult | null>(null);
   const [busy, setBusy] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [confirmText, setConfirmText] = useState('');
+  const [clearOpen, setClearOpen] = useState(false);
 
   function reportResult(res: ImportResult) {
     setResult(res);
@@ -66,35 +55,22 @@ export function ImportScreen() {
     }
   }
 
-  async function onImport() {
-    if (!text.trim()) {
-      toast.error('Paste some data first');
-      return;
-    }
+  async function onClearDatabase() {
     setBusy(true);
     try {
-      const rows =
-        format === 'csv' ? rowsFromCsv(text) : rowsFromJson(text);
-      if (rows.length === 0) {
-        toast.error('No rows found');
-        return;
-      }
-      const res = await importRows(rows);
-      reportResult(res);
+      await db.transaction('rw', db.languages, db.flashcards, async () => {
+        await db.flashcards.clear();
+        await db.languages.clear();
+      });
+      toast.success('Database cleared. All cards and languages deleted.');
+      setClearOpen(false);
+      setConfirmText('');
+      setResult(null);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to parse');
+      toast.error(e instanceof Error ? e.message : 'Clear failed');
     } finally {
       setBusy(false);
     }
-  }
-
-  function readFile(file: File) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const t = reader.result;
-      if (typeof t === 'string') setText(t);
-    };
-    reader.readAsText(file);
   }
 
   return (
@@ -104,107 +80,70 @@ export function ImportScreen() {
         <div className="mx-auto max-w-3xl space-y-6">
           <BuiltInLessons onResult={reportResult} busy={busy} setBusy={setBusy} />
 
-          <Card>
+          {result ? <ImportSummary result={result} /> : null}
+
+          <Card className="border-destructive/40">
             <CardHeader>
-              <CardTitle>Import from file or text</CardTitle>
+              <CardTitle className="text-destructive">Clear Database</CardTitle>
               <CardDescription>
-                Paste CSV/JSON or drop a file. Languages and tags are created
-                as needed.
+                Delete all cards and languages from this browser. Use this to
+                start fresh before importing.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Format</Label>
-                <Tabs
-                  value={format}
-                  onValueChange={(v) => setFormat(v as Format)}
-                >
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="csv">
-                      <FileText />
-                      CSV
-                    </TabsTrigger>
-                    <TabsTrigger value="json">
-                      <FileText />
-                      JSON
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-
-              <div
-                className={cn(
-                  'flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors',
-                  dragOver
-                    ? 'border-ring bg-accent/40'
-                    : 'border-border bg-muted/40',
-                )}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOver(false);
-                  const f = e.dataTransfer.files?.[0];
-                  if (f) readFile(f);
-                }}
-              >
-                <FileDown className="text-muted-foreground size-8" />
-                <p className="mt-2 text-sm font-medium">
-                  Drop a {format.toUpperCase()} file or
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload />
-                  Choose file
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  hidden
-                  accept={
-                    format === 'csv' ? '.csv,text/csv' : '.json,application/json'
-                  }
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) readFile(f);
-                  }}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="paste-textarea">
-                  Or paste {format.toUpperCase()} below
-                </Label>
-                <Textarea
-                  id="paste-textarea"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  rows={10}
-                  placeholder={format === 'csv' ? SAMPLE_CSV : SAMPLE_JSON}
-                  className="font-mono text-xs"
-                />
-              </div>
-
-              <Button
-                size="lg"
-                className="w-full"
-                onClick={onImport}
-                disabled={busy}
-              >
-                <Upload />
-                {busy ? 'Importing…' : 'Import'}
-              </Button>
+            <CardContent>
+              <AlertDialog open={clearOpen} onOpenChange={setClearOpen}>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" disabled={busy}>
+                    <Trash2 />
+                    Clear all data
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Delete all languages and cards?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This permanently removes every language and card stored in
+                      this browser. Cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-clear">
+                      Type{' '}
+                      <span className="font-mono font-semibold">DELETE</span> to
+                      confirm
+                    </Label>
+                    <Input
+                      id="confirm-clear"
+                      autoFocus
+                      value={confirmText}
+                      onChange={(e) => setConfirmText(e.target.value)}
+                      placeholder="DELETE"
+                    />
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel
+                      onClick={() => setConfirmText('')}
+                      disabled={busy}
+                    >
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (confirmText === 'DELETE') void onClearDatabase();
+                      }}
+                      disabled={busy || confirmText !== 'DELETE'}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete everything
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
-
-          {result ? <ImportSummary result={result} /> : null}
         </div>
       </PageShell>
     </>

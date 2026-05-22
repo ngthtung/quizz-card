@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Keyboard, Layers, Target } from 'lucide-react';
 import { PageHeader, PageShell } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -74,6 +74,21 @@ export function StudyScreen() {
     if (!languageId) return null;
     return loadSavedScope(languageId, datasets);
   }, [languageId, datasets]);
+
+  // Auto-select Japanese language as default
+  useEffect(() => {
+    if (!languageId && languages && languages.length > 0) {
+      const japanese = languages.find(
+        (l) => l.name.toLowerCase() === 'japanese',
+      );
+      if (japanese) {
+        setLanguageId(japanese.id);
+      } else {
+        // Fallback to first language if Japanese not found
+        setLanguageId(languages[0].id);
+      }
+    }
+  }, [languages, languageId]);
 
   if (session) {
     return (
