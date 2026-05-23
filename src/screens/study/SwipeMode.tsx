@@ -11,8 +11,8 @@ import { SpeakButton } from '@/components/SpeakButton';
 import { Furigana } from '@/components/Furigana';
 import { pronunciationFor } from '@/lib/speech';
 import { nonEmptyFields, pickRandom, pickWeighted } from '@/lib/study';
-import { matchesScope, type Scope } from '@/lib/datasets';
-import type { FieldKey, Flashcard, Language } from '@/types';
+import { matchesScope } from '@/lib/datasets';
+import type { FieldKey, Flashcard, Language, Scope } from '@/types';
 
 const SWIPE_THRESHOLD = 110;
 

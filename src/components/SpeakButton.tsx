@@ -1,16 +1,9 @@
 import { Volume2 } from 'lucide-react';
-import { speak, speechSupported } from '@/lib/speech';
+import { cleanForSpeech, speak, speechSupported } from '@/lib/speech';
 import { useSettings } from '@/lib/settings';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { FieldKey } from '@/types';
-
-function cleanForSpeech(text: string): string {
-  return text
-    .replace(/[～〜~]/g, '') // Remove placeholder tildes
-    .replace(/[［\[（(][^］\]）)]*[］\]）)]/g, '') // Remove bracketed text like (reading)
-    .trim();
-}
 
 export function SpeakButton({
   text,

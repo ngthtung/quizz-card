@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { DEFAULT_GENERIC_LABELS, FIELD_KEYS, type FieldLabels } from '@/types';
+import {
+  DEFAULT_GENERIC_LABELS,
+  FIELD_KEYS,
+  type CardFormValues,
+  type FieldLabels,
+  type LanguageFormValues,
+} from '@/types';
 
 const labelsSchema = z.object({
   mainText: z.string().min(1, 'Required'),
@@ -12,9 +18,7 @@ const labelsSchema = z.object({
 export const languageFormSchema = z.object({
   name: z.string().trim().min(1, 'Name is required'),
   fieldLabels: labelsSchema,
-});
-
-export type LanguageFormValues = z.infer<typeof languageFormSchema>;
+}) satisfies z.ZodType<LanguageFormValues>;
 
 export const defaultLanguageFormValues: LanguageFormValues = {
   name: '',
@@ -41,9 +45,7 @@ export const cardFormSchema = z
       message: 'Fill at least one field',
       path: ['mainText'],
     },
-  );
-
-export type CardFormValues = z.infer<typeof cardFormSchema>;
+  ) satisfies z.ZodType<CardFormValues>;
 
 export function emptyCardFormValues(languageId: string): CardFormValues {
   return {

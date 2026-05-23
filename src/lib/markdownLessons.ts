@@ -1,4 +1,4 @@
-import type { ImportRow } from "./import";
+import type { ImportRow, Lesson } from "../types";
 
 const lessonFiles = import.meta.glob("../../data/minna-bai-*.md", {
     query: "?raw",
@@ -12,12 +12,6 @@ console.log("Glob pattern: ../../data/minna-bai-*.md");
 console.log("Files detected by glob:", Object.keys(lessonFiles));
 console.log("Count:", Object.keys(lessonFiles).length);
 console.log("======================================");
-
-export type Lesson = {
-    id: string;
-    title: string;
-    rows: ImportRow[];
-};
 
 export function listLessons(): Lesson[] {
     console.log("listLessons: Found files:", Object.keys(lessonFiles));

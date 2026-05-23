@@ -1,4 +1,12 @@
-import { FIELD_KEYS, type FieldKey, type Flashcard } from '../types';
+import { pronunciationFor } from './speech';
+import {
+  FIELD_KEYS,
+  type FieldKey,
+  type Flashcard,
+  type Language,
+  type ListenQuestion,
+  type WriteQuestion,
+} from '../types';
 
 export function priority(card: Flashcard): number {
   const base = 1 + card.forgottenCount * 2 - card.rememberedCount;
@@ -35,12 +43,6 @@ export function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-export type WriteQuestion = {
-  card: Flashcard;
-  promptField: FieldKey;
-  answerField: FieldKey;
-};
-
 const PROMPT_BIAS: FieldKey[] = ['meaning', 'variant1', 'mainText'];
 const JA_ANSWER_BIAS: FieldKey[] = ['variant2', 'variant3', 'mainText'];
 
@@ -75,4 +77,36 @@ export function buildWriteQuestion(
     return { card, promptField, answerField };
   }
   return null;
+}
+
+export function buildListenQuestion(
+  cards: Flashcard[],
+  options?: { language?: Pick<Language, 'name'> },
+): ListenQuestion | null {
+  const eligible = cards.filter((c) => c.mainText && c.meaning);
+  if (eligible.length === 0) return null;
+
+  const card = pickWeighted(eligible);
+  if (!card) return null;
+
+  const spokenText =
+    pronunciationFor(card, options?.language) || card.mainText;
+  if (!spokenText) return null;
+
+  const distractorPool = eligible.filter(
+    (c) => c.id !== card.id && c.meaning !== card.meaning,
+  );
+  const distractorCards = shuffle(distractorPool).slice(0, 3);
+  if (distractorCards.length === 0) return null;
+
+  const choicesWithCards = shuffle([
+    { text: card.meaning, card },
+    ...distractorCards.map((c) => ({ text: c.meaning, card: c })),
+  ]);
+
+  const choices = choicesWithCards.map((c) => c.text);
+  const choiceCards = choicesWithCards.map((c) => c.card);
+  const correctIndex = choicesWithCards.findIndex((c) => c.card.id === card.id);
+
+  return { card, spokenText, choices, choiceCards, correctIndex };
 }

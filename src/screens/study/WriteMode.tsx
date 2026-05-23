@@ -9,10 +9,11 @@ import { Progress } from '@/components/ui/progress';
 import { SpeakButton } from '@/components/SpeakButton';
 import { Furigana } from '@/components/Furigana';
 import { pronunciationFor } from '@/lib/speech';
-import { buildWriteQuestion, type WriteQuestion } from '@/lib/study';
+import { buildWriteQuestion } from '@/lib/study';
 import { isAnswerCorrect } from '@/lib/answerMatch';
-import { matchesScope, type Scope } from '@/lib/datasets';
+import { matchesScope } from '@/lib/datasets';
 import { cn } from '@/lib/utils';
+import type { Scope, WriteQuestion } from '@/types';
 
 export function WriteMode({
   languageId,

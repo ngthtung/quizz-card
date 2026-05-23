@@ -42,11 +42,10 @@ import {
   deleteLanguage,
   updateLanguage,
 } from '@/db/languages';
-import { FIELD_KEYS, type Language } from '@/types';
+import { FIELD_KEYS, type Language, type LanguageFormValues } from '@/types';
 import {
   defaultLanguageFormValues,
   languageFormSchema,
-  type LanguageFormValues,
 } from '@/lib/schemas';
 
 type EditorState =

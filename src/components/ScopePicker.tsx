@@ -9,12 +9,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  countCardsForScope,
-  type Dataset,
-  type Scope,
-} from '@/lib/datasets';
-import type { Flashcard } from '@/types';
+import { countCardsForScope } from '@/lib/datasets';
+import type { Dataset, Flashcard, Scope } from '@/types';
 
 const GROUP_LABELS: Record<Dataset['group'], string> = {
   lessons: 'Lessons',
@@ -39,12 +35,13 @@ export function ScopePicker({
   initialScope: Scope;
   onConfirm: (scope: Scope) => void;
 }) {
-  const [draft, setDraft] = useState<Scope>(initialScope);
+  const [draft, setDraft] = useState<string[]>(() =>
+    normalizeScope(initialScope, datasets),
+  );
 
-  // Reset draft whenever the modal is opened anew or the initial scope changes.
   useEffect(() => {
-    if (open) setDraft(initialScope);
-  }, [open, initialScope]);
+    if (open) setDraft(normalizeScope(initialScope, datasets));
+  }, [open, initialScope, datasets]);
 
   const grouped = useMemo(() => {
     const groups: Record<Dataset['group'], Dataset[]> = {
@@ -56,20 +53,39 @@ export function ScopePicker({
     return groups;
   }, [datasets]);
 
-  const everythingChecked = draft === null;
+  const lessonIds = useMemo(
+    () => grouped.lessons.map((d) => d.id),
+    [grouped.lessons],
+  );
+  const lessonsTotal = useMemo(
+    () => grouped.lessons.reduce((sum, d) => sum + d.count, 0),
+    [grouped.lessons],
+  );
+  const allLessonsChecked =
+    lessonIds.length > 0 && lessonIds.every((id) => draft.includes(id));
+
   const totalSelectedCount = countCardsForScope(draft, languageId, cards);
 
-  function pickEverything() {
-    setDraft(null);
+  function toggleAllLessons() {
+    setDraft((prev) => {
+      if (allLessonsChecked) {
+        return prev.filter((id) => !lessonIds.includes(id));
+      }
+      const set = new Set(prev);
+      for (const id of lessonIds) set.add(id);
+      return Array.from(set);
+    });
   }
 
   function toggleTag(tag: string) {
     setDraft((prev) => {
-      const current = prev === null ? [] : [...prev];
-      const idx = current.indexOf(tag);
-      if (idx >= 0) current.splice(idx, 1);
-      else current.push(tag);
-      return current;
+      const idx = prev.indexOf(tag);
+      if (idx >= 0) {
+        const next = [...prev];
+        next.splice(idx, 1);
+        return next;
+      }
+      return [...prev, tag];
     });
   }
 
@@ -86,13 +102,14 @@ export function ScopePicker({
         </DialogHeader>
 
         <div className="max-h-[60vh] space-y-4 overflow-y-auto py-1">
-          <ScopeRow
-            label="Everything in this language"
-            count={cards.filter((c) => c.languageId === languageId).length}
-            checked={everythingChecked}
-            onChange={pickEverything}
-            kind="radio"
-          />
+          {lessonIds.length > 0 ? (
+            <ScopeRow
+              label="All"
+              count={lessonsTotal}
+              checked={allLessonsChecked}
+              onChange={toggleAllLessons}
+            />
+          ) : null}
 
           {(['lessons', 'kana', 'other'] as const).map((g) => {
             const items = grouped[g];
@@ -108,9 +125,8 @@ export function ScopePicker({
                       key={d.id}
                       label={d.label}
                       count={d.count}
-                      checked={draft !== null && draft.includes(d.id)}
+                      checked={draft.includes(d.id)}
                       onChange={() => toggleTag(d.id)}
-                      kind="checkbox"
                     />
                   ))}
                 </div>
@@ -142,24 +158,26 @@ export function ScopePicker({
   );
 }
 
+function normalizeScope(scope: Scope, datasets: Dataset[]): string[] {
+  if (scope === null) return datasets.map((d) => d.id);
+  return [...scope];
+}
+
 function ScopeRow({
   label,
   count,
   checked,
   onChange,
-  kind,
 }: {
   label: string;
   count: number;
   checked: boolean;
   onChange: () => void;
-  kind: 'radio' | 'checkbox';
 }) {
   return (
     <label className="hover:bg-accent flex cursor-pointer items-center gap-3 rounded-md border border-transparent px-2 py-2 transition">
       <input
-        type={kind === 'radio' ? 'radio' : 'checkbox'}
-        name={kind === 'radio' ? 'scope-everything' : undefined}
+        type="checkbox"
         checked={checked}
         onChange={onChange}
         className="h-4 w-4 accent-current"

@@ -4,6 +4,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Inbox,
   MoreVertical,
   Pencil,
@@ -78,11 +82,8 @@ import {
   deleteFlashcard,
   updateFlashcard,
 } from '@/db/flashcards';
-import {
-  cardFormSchema,
-  emptyCardFormValues,
-  type CardFormValues,
-} from '@/lib/schemas';
+import { cardFormSchema, emptyCardFormValues } from '@/lib/schemas';
+import type { CardFormValues } from '@/types';
 import type { Flashcard, Language } from '@/types';
 
 type EditorState =
@@ -105,6 +106,8 @@ export function CardsScreen() {
   const [search, setSearch] = useState('');
   const [editor, setEditor] = useState<EditorState>(null);
   const [deleteTarget, setDeleteTarget] = useState<Flashcard | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(24);
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -134,6 +137,18 @@ export function CardsScreen() {
       return true;
     });
   }, [cards, languageFilter, tagFilter, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * pageSize;
+  const paginated = useMemo(
+    () => filtered.slice(pageStart, pageStart + pageSize),
+    [filtered, pageStart, pageSize],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [languageFilter, tagFilter, search, pageSize]);
 
   const langById = useMemo(() => {
     const m: Record<string, Language> = {};
@@ -243,18 +258,28 @@ export function CardsScreen() {
             No cards match your filters.
           </p>
         ) : (
-          <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((c) => (
-              <li key={c.id}>
-                <CardRow
-                  card={c}
-                  language={langById[c.languageId]}
-                  onEdit={() => setEditor({ mode: 'edit', card: c })}
-                  onDelete={() => setDeleteTarget(c)}
-                />
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {paginated.map((c) => (
+                <li key={c.id}>
+                  <CardRow
+                    card={c}
+                    language={langById[c.languageId]}
+                    onEdit={() => setEditor({ mode: 'edit', card: c })}
+                    onDelete={() => setDeleteTarget(c)}
+                  />
+                </li>
+              ))}
+            </ul>
+            <Pagination
+              page={safePage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              total={filtered.length}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          </>
         )}
       </PageShell>
 
@@ -676,5 +701,90 @@ function CardEditor({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function Pagination({
+  page,
+  totalPages,
+  pageSize,
+  total,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  page: number;
+  totalPages: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (p: number) => void;
+  onPageSizeChange: (n: number) => void;
+}) {
+  if (total === 0) return null;
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+  return (
+    <div className="mt-6 flex flex-col items-center justify-between gap-3 sm:flex-row">
+      <div className="text-muted-foreground text-sm">
+        Showing {start}–{end} of {total}
+      </div>
+      <div className="flex items-center gap-3">
+        <Select
+          value={String(pageSize)}
+          onValueChange={(v) => onPageSizeChange(Number(v))}
+        >
+          <SelectTrigger className="w-[110px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[12, 24, 48, 96].map((n) => (
+              <SelectItem key={n} value={String(n)}>
+                {n} / page
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => onPageChange(1)}
+            disabled={page <= 1}
+            aria-label="First page"
+          >
+            <ChevronsLeft />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => onPageChange(page - 1)}
+            disabled={page <= 1}
+            aria-label="Previous page"
+          >
+            <ChevronLeft />
+          </Button>
+          <span className="px-2 text-sm tabular-nums">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => onPageChange(page + 1)}
+            disabled={page >= totalPages}
+            aria-label="Next page"
+          >
+            <ChevronRight />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => onPageChange(totalPages)}
+            disabled={page >= totalPages}
+            aria-label="Last page"
+          >
+            <ChevronsRight />
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

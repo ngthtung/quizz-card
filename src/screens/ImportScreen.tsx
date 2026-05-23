@@ -18,11 +18,9 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import {
-  importRows,
-  type ImportResult,
-} from '@/lib/import';
+import { importRows } from '@/lib/import';
 import { listLessons } from '@/lib/markdownLessons';
+import type { ImportResult } from '@/types';
 import { db } from '@/db/db';
 import {
   AlertDialog,

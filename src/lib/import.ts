@@ -1,27 +1,10 @@
 import { db } from '../db/db';
 import { createFlashcard } from '../db/flashcards';
 import { createLanguage } from '../db/languages';
-import { JAPANESE_LABELS } from '../types';
+import { JAPANESE_LABELS, type ImportResult, type ImportRow } from '../types';
 import { parseCsv } from './csv';
 import { looksLikeRomaji, romajiToHiragana } from './kana';
 import { hasAtLeastOneField } from './schemas';
-
-export type ImportRow = {
-  language?: string;
-  mainText?: string;
-  variant1?: string;
-  variant2?: string;
-  variant3?: string;
-  meaning?: string;
-  notes?: string;
-  tags?: string | string[];
-};
-
-export type ImportResult = {
-  imported: number;
-  errors: { row: number; message: string }[];
-  createdLanguages: string[];
-};
 
 export async function importRows(rows: ImportRow[]): Promise<ImportResult> {
   const result: ImportResult = {

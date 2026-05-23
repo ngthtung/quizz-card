@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Keyboard, Layers, Target } from 'lucide-react';
+import { ArrowLeft, Headphones, Keyboard, Layers, Target } from 'lucide-react';
 import { PageHeader, PageShell } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,20 +24,23 @@ import { db } from '@/db/db';
 import { SwipeMode } from './study/SwipeMode';
 import { MultipleChoiceMode } from './study/MultipleChoiceMode';
 import { WriteMode } from './study/WriteMode';
+import { ListenMode } from './study/ListenMode';
 import { ScopePicker } from '@/components/ScopePicker';
+import { speechSupported } from '@/lib/speech';
 import {
   groupTagsForLanguage,
   loadSavedScope,
   saveScope,
-  type Scope,
 } from '@/lib/datasets';
+import type { Scope } from '@/types';
 
-type Mode = 'swipe' | 'mc' | 'write';
+type Mode = 'swipe' | 'mc' | 'write' | 'listen';
 
 const MODE_TITLES: Record<Mode, string> = {
   swipe: 'Swipe study',
   mc: 'Multiple choice',
   write: 'Write study',
+  listen: 'Listening',
 };
 
 type Session = { mode: Mode; languageId: string; scope: Scope };
@@ -109,8 +112,10 @@ export function StudyScreen() {
             languageId={session.languageId}
             scope={session.scope}
           />
-        ) : (
+        ) : session.mode === 'write' ? (
           <WriteMode languageId={session.languageId} scope={session.scope} />
+        ) : (
+          <ListenMode languageId={session.languageId} scope={session.scope} />
         )}
       </>
     );
@@ -155,7 +160,7 @@ export function StudyScreen() {
                 <div className="space-y-2">
                   <Label>Mode</Label>
                   <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
-                    <TabsList className="grid w-full grid-cols-3">
+                    <TabsList className="grid w-full grid-cols-4">
                       <TabsTrigger value="swipe">
                         <Layers />
                         Swipe
@@ -168,6 +173,18 @@ export function StudyScreen() {
                         <Keyboard />
                         Write
                       </TabsTrigger>
+                      <TabsTrigger
+                        value="listen"
+                        disabled={!speechSupported}
+                        title={
+                          speechSupported
+                            ? undefined
+                            : 'Browser TTS not available'
+                        }
+                      >
+                        <Headphones />
+                        Listen
+                      </TabsTrigger>
                     </TabsList>
                   </Tabs>
                   <p className="text-muted-foreground text-xs">
@@ -175,7 +192,9 @@ export function StudyScreen() {
                       ? 'Tap to reveal, swipe left/right.'
                       : mode === 'mc'
                         ? 'Pick A, B, C, or D.'
-                        : 'Type the answer.'}
+                        : mode === 'write'
+                          ? 'Type the answer.'
+                          : 'Hear the word, pick the meaning.'}
                   </p>
                 </div>
 

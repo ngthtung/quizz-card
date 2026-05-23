@@ -1,15 +1,4 @@
-import type { Flashcard } from '@/types';
-
-export type DatasetGroup = 'lessons' | 'kana' | 'other';
-
-export type Dataset = {
-  id: string;        // the raw tag, e.g. 'minna-bai-3'
-  label: string;     // human-readable, e.g. 'Minna Bài 3'
-  count: number;     // cards in the chosen language with this tag
-  group: DatasetGroup;
-  // For lessons we want numeric sort; for others alphabetical.
-  sortKey: number | string;
-};
+import type { Dataset, DatasetGroup, Flashcard, Scope } from '@/types';
 
 const MINNA_BAI_RE = /^minna-bai-(\d+)$/;
 
@@ -61,9 +50,6 @@ export function groupTagsForLanguage(
   });
   return datasets;
 }
-
-// "Everything" is represented as null. Anything else is an explicit tag list.
-export type Scope = string[] | null;
 
 export function countCardsForScope(
   scope: Scope,

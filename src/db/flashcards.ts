@@ -1,24 +1,10 @@
 import { db } from './db';
 import { newId, nowIso } from '../lib/id';
-import type { Flashcard } from '../types';
-
-export type CreateFlashcardInput = {
-  languageId: string;
-  mainText: string;
-  variant1?: string;
-  variant2?: string;
-  variant3?: string;
-  meaning?: string;
-  notes?: string;
-  tags?: string[];
-};
-
-export type UpdateFlashcardInput = Partial<
-  Omit<
-    Flashcard,
-    'id' | 'createdAt' | 'updatedAt' | 'rememberedCount' | 'forgottenCount'
-  >
->;
+import type {
+  CreateFlashcardInput,
+  Flashcard,
+  UpdateFlashcardInput,
+} from '../types';
 
 export async function listFlashcards(filters?: {
   languageId?: string;

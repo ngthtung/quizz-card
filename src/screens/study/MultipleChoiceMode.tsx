@@ -9,9 +9,9 @@ import { SpeakButton } from '@/components/SpeakButton';
 import { Furigana } from '@/components/Furigana';
 import { pronunciationFor } from '@/lib/speech';
 import { nonEmptyFields, pickRandom, pickWeighted, shuffle } from '@/lib/study';
-import { matchesScope, type Scope } from '@/lib/datasets';
+import { matchesScope } from '@/lib/datasets';
 import { cn } from '@/lib/utils';
-import type { FieldKey, Flashcard } from '@/types';
+import type { FieldKey, Flashcard, Scope } from '@/types';
 
 type Question = {
   card: Flashcard;

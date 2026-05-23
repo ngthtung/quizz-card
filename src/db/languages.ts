@@ -3,14 +3,9 @@ import { newId, nowIso } from '../lib/id';
 import {
   DEFAULT_GENERIC_LABELS,
   JAPANESE_LABELS,
-  type FieldLabels,
+  type CreateLanguageInput,
   type Language,
 } from '../types';
-
-export type CreateLanguageInput = {
-  name: string;
-  fieldLabels?: Partial<FieldLabels>;
-};
 
 export async function listLanguages(): Promise<Language[]> {
   return db.languages.orderBy('name').toArray();

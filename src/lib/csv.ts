@@ -1,4 +1,4 @@
-export type CsvRow = Record<string, string>;
+import type { CsvRow } from '@/types';
 
 export function parseCsv(input: string): CsvRow[] {
   const text = input.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
