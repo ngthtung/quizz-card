@@ -153,18 +153,22 @@ Mobile support:
 Flow:
 
 1. Pick a card.
-2. Randomly choose a question field.
-3. Randomly choose a different field as the answer.
-4. Show four choices:
+2. Choose the question and answer fields using a constrained pairing (no random pairing across all fields):
+   - **Japanese-script → meaning** — when the question is `mainText` (kanji), `variant2` (hiragana), or `variant3` (katakana), the answer **must** be `meaning`.
+   - **meaning → Japanese-script** — when the question is `meaning`, the answer **must** be one of `mainText` / `variant2` / `variant3` (kanji / hiragana / katakana).
+   - Romaji (`variant1`) is **not** used as the question or answer in Choice mode — it's a transliteration aid, not a recall target. (Romaji practice belongs in Write mode.)
+   - Direction is chosen first (script→meaning vs. meaning→script). For meaning→script, pick whichever Japanese-script field on the card is non-empty; if more than one is filled, prefer `mainText` (kanji) when present, otherwise fall back to a kana variant.
+   - This guarantees learners practice both **recognition** (Japanese → meaning) and **production** (meaning → Japanese), and avoids the kana ↔ kanji or kana ↔ romaji pairings that the old random-field approach produced.
+3. Show four choices, all drawn from the same field as the answer:
    - One correct answer from the selected card.
-   - Three wrong answers from other cards in the same language.
-5. If there are not enough cards, use fewer choices or show a message asking the user to add more cards.
-6. User chooses A, B, C, or D.
-7. Show correct/incorrect state.
-8. Update stats:
+   - Three wrong answers from other cards in the same language (same answer field).
+4. Eligibility: a card needs `meaning` plus at least one of `mainText` / `variant2` / `variant3` to participate. If fewer than four eligible cards exist for distractors, use as many as are available; if zero distractors exist, show "Need at least two cards with meanings."
+5. User chooses A, B, C, or D.
+6. Show correct/incorrect state.
+7. Update stats:
    - Correct: increment `rememberedCount`
    - Incorrect: increment `forgottenCount`
-9. Move to the next question.
+8. Move to the next question.
 
 ## Import Format
 

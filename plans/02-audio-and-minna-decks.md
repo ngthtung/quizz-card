@@ -1,6 +1,6 @@
 # Phase 2 Plan
 
-Builds on [plan-1.md](./plan-1.md). Tightens the card workflow, adds audio, and introduces sections (decks) so users can drill one Minna no Nihongo lesson at a time.
+Builds on [01-mvp-flashcards.md](./01-mvp-flashcards.md). Tightens the card workflow, adds audio, and introduces sections (decks) so users can drill one Minna no Nihongo lesson at a time.
 
 ## Goals
 
@@ -25,7 +25,7 @@ Builds on [plan-1.md](./plan-1.md). Tightens the card workflow, adds audio, and 
 - Update form validation, error messages, and the import validator (CSV/JSON) to use the same "at least one field" rule.
 - Study modes must handle cards that only have a subset of fields:
   - **Swipe:** pick a prompt only from non-empty fields. If only one field exists, show it as the prompt and the answer area says "no other fields yet".
-  - **Multiple choice:** skip cards that don't have at least two non-empty fields (one for question, one for answer); surface a message if the language has too few eligible cards.
+  - **Multiple choice:** skip cards that don't have a non-empty `meaning` plus at least one of `mainText` / `variant2` / `variant3` (the constrained Japanese-script ↔ meaning pairing from [[01-mvp-flashcards]] §Multiple Choice Mode); surface a message if the language has too few eligible cards.
 
 ### 3. Audio support per card
 

@@ -1,12 +1,12 @@
 # Phase 7 Plan — Listening Mode
 
-Builds on [plan-1.md](./plan-1.md) (study flow), [plan-3.md](./plan-3.md) (TTS pronunciation override), [plan-4.md](./plan-4.md) (shadcn UI), [plan-5.md](./plan-5.md) (Write mode), and [plan-6.md](./plan-6.md) (scope picker). Adds a fourth study mode — **Listen** — where the question is *only* audio of the word and the learner picks the meaning from four choices.
+Builds on [01-mvp-flashcards.md](./01-mvp-flashcards.md) (study flow), [03-kanji-audio-toggle.md](./03-kanji-audio-toggle.md) (TTS pronunciation override), [04-shadcn-ui-overhaul.md](./04-shadcn-ui-overhaul.md) (shadcn UI), [05-write-mode.md](./05-write-mode.md) (Write mode), and [06-scope-picker.md](./06-scope-picker.md) (scope picker). Adds a fourth study mode — **Listen** — where the question is *only* audio of the word and the learner picks the meaning from four choices.
 
 ## Motivation
 
 The existing modes (Swipe, Choice, Write) all show the Japanese script as the prompt — the learner sees `りんご` or `林檎` and has to recall the meaning. That trains **reading**, but it doesn't train **listening**, which is the weakest skill for most beginners and the one Anki-style apps usually neglect.
 
-The TTS infrastructure is already in place (`src/lib/speech.ts`, `SpeakButton`, kana-fallback via `pronunciationFor` from [[plan-3.md]]). The only missing piece is a mode where audio is the prompt instead of an optional accessory. A new "Listen" mode wires that infrastructure into the study flow.
+The TTS infrastructure is already in place (`src/lib/speech.ts`, `SpeakButton`, kana-fallback via `pronunciationFor` from [[03-kanji-audio-toggle.md]]). The only missing piece is a mode where audio is the prompt instead of an optional accessory. A new "Listen" mode wires that infrastructure into the study flow.
 
 ## Goal
 
@@ -30,7 +30,7 @@ A fourth option in the Study screen's mode `Tabs`:
 
 Same data flow as the existing modes:
 
-- `languageId` and `scope` props (from [[plan-6.md]]).
+- `languageId` and `scope` props (from [[06-scope-picker.md]]).
 - Reads cards through `db.flashcards.where('languageId').equals(languageId).filter(matchesScope)`.
 - Calls `recordReview(cardId, correct)` to update `rememberedCount` / `forgottenCount` like the others.
 
@@ -105,7 +105,7 @@ If `speechSupported === false`, the **Listen** tab is rendered disabled with a t
 
 ### 6. Settings interaction
 
-The existing `kanjiAudioEnabled` setting from [[plan-3.md]] is **ignored** in Listen mode — audio is the whole point of the mode, so even if a user has hidden the kanji-audio button on cards, they still get audio here. Document this in a one-line comment in `ListenMode.tsx`.
+The existing `kanjiAudioEnabled` setting from [[03-kanji-audio-toggle.md]] is **ignored** in Listen mode — audio is the whole point of the mode, so even if a user has hidden the kanji-audio button on cards, they still get audio here. Document this in a one-line comment in `ListenMode.tsx`.
 
 ### 7. Empty / edge states
 
@@ -154,7 +154,7 @@ Untouched:
 ## Acceptance Criteria
 
 - The Study screen shows four mode tabs: Swipe, Choice, Write, **Listen**.
-- Picking Listen + a language and clicking Start session opens the scope picker (per [[plan-6.md]]) and then the Listen mode session.
+- Picking Listen + a language and clicking Start session opens the scope picker (per [[06-scope-picker.md]]) and then the Listen mode session.
 - On session start, the first card's audio plays automatically.
 - The screen shows a circular replay button and four meaning choices — no Japanese script visible on the prompt.
 - Tapping the replay button replays the audio.
@@ -208,5 +208,5 @@ Untouched:
 - **Auto-play**: yes, on question mount and on Next.
 - **Japanese cards**: prefer kana variant for audio via `pronunciationFor`. Fall back to `mainText` if no kanji.
 - **`kanjiAudioEnabled` setting**: ignored in Listen mode — audio is the mode's purpose.
-- **Scope picker**: reused unchanged from [[plan-6.md]].
+- **Scope picker**: reused unchanged from [[06-scope-picker.md]].
 - **Empty-state thresholds**: need at least 2 eligible cards (1 prompt + 1 distractor); 4 distractors preferred but not required.

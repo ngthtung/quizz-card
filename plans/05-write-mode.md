@@ -1,6 +1,6 @@
 # Phase 5 Plan — Write Study Mode
 
-Builds on [plan-1.md](./plan-1.md) (data model + study flow), [plan-2.md](./plan-2.md) (Minna sections + import), [plan-3.md](./plan-3.md) (Kanji audio toggle), and [plan-4.md](./plan-4.md) (shadcn UI primitives). Adds a third study mode where the learner **types the answer** instead of swiping or picking from choices — a much harder recall exercise that's especially useful for practicing hiragana / katakana production from a romaji or meaning prompt.
+Builds on [01-mvp-flashcards.md](./01-mvp-flashcards.md) (data model + study flow), [02-audio-and-minna-decks.md](./02-audio-and-minna-decks.md) (Minna sections + import), [03-kanji-audio-toggle.md](./03-kanji-audio-toggle.md) (Kanji audio toggle), and [04-shadcn-ui-overhaul.md](./04-shadcn-ui-overhaul.md) (shadcn UI primitives). Adds a third study mode where the learner **types the answer** instead of swiping or picking from choices — a much harder recall exercise that's especially useful for practicing hiragana / katakana production from a romaji or meaning prompt.
 
 ## Motivation
 
@@ -11,18 +11,18 @@ The two existing modes cover **recognition**:
 
 Neither tests **production**: can the user actually *produce* `こんにちは` when given `konnichiwa`? For kana drills (the user just added あいうえお / アイウエオ cards) this gap is the whole point. Write mode closes it: the prompt is shown, the input is empty, the user has to commit a guess before seeing the answer.
 
-This is the natural complement to the audio playback added in [plan-3.md](./plan-3.md) — together, audio (input) and writing (output) cover both directions of recall for each character or vocabulary item.
+This is the natural complement to the audio playback added in [03-kanji-audio-toggle.md](./03-kanji-audio-toggle.md) — together, audio (input) and writing (output) cover both directions of recall for each character or vocabulary item.
 
 ## Goal
 
-Add a new **Write** option to the Study screen's mode picker. Selecting it runs a session where each card's prompt is shown, the user types into an input, submits, and gets correct / incorrect feedback. Reuse the same weighted card selection ([[plan-1.md]]) and review-stat updates as Swipe and Multiple Choice — only the interaction layer differs.
+Add a new **Write** option to the Study screen's mode picker. Selecting it runs a session where each card's prompt is shown, the user types into an input, submits, and gets correct / incorrect feedback. Reuse the same weighted card selection ([[01-mvp-flashcards.md]]) and review-stat updates as Swipe and Multiple Choice — only the interaction layer differs.
 
 ## Scope
 
 ### 1. Mode plumbing
 
 - Extend the `Mode` union in `src/screens/StudyScreen.tsx` from `'swipe' | 'mc'` to `'swipe' | 'mc' | 'write'`.
-- Add a third `<ModeButton>` (or, after [[plan-4.md]] M5, a third tab in `Tabs`):
+- Add a third `<ModeButton>` (or, after [[04-shadcn-ui-overhaul.md]] M5, a third tab in `Tabs`):
   - Label: **Write**
   - Hint: "Type the answer"
 - The session header switches title to "Write study" when `mode === 'write'`.
@@ -95,12 +95,12 @@ Top section — **prompt card**:
 
 - Card with `text-xs uppercase` label = `language.fieldLabels[promptField]`.
 - Big `text-3xl` value = `card[promptField]`.
-- 🔊 SpeakButton, hidden when prompt field is `meaning` (it's not in the target language) — same conditional already used in the other modes. Honors the kanji-audio toggle from [[plan-3.md]] when prompt is `mainText` of a Japanese card.
+- 🔊 SpeakButton, hidden when prompt field is `meaning` (it's not in the target language) — same conditional already used in the other modes. Honors the kanji-audio toggle from [[03-kanji-audio-toggle.md]] when prompt is `mainText` of a Japanese card.
 - Helper line: `Type the {language.fieldLabels[answerField]}.`
 
 Middle section — **input**:
 
-- Single-line `<input>` (or shadcn `Input` after [[plan-4.md]]).
+- Single-line `<input>` (or shadcn `Input` after [[04-shadcn-ui-overhaul.md]]).
 - `autoFocus` when the question first renders **and** when the user clicks "Next question".
 - `enterKeyHint="go"`, `autoCapitalize="off"`, `autoCorrect="off"`, `spellCheck={false}` — kana / romaji shouldn't be autocorrected.
 - IME stays enabled (no `inputMode` override). On mobile, the OS surfaces the kana keyboard if the user has it installed; otherwise they get romaji input that the IME converts.
@@ -138,7 +138,7 @@ Identical contract to Multiple Choice:
 
 ### 7. Settings interaction
 
-- Honor [[plan-3.md]]'s `kanjiAudioEnabled` for any 🔊 rendered on the `mainText` field of a Japanese card.
+- Honor [[03-kanji-audio-toggle.md]]'s `kanjiAudioEnabled` for any 🔊 rendered on the `mainText` field of a Japanese card.
 - No new settings. The bias rules in §2 are intentional and shouldn't be user-tunable in v1 — keep config surface small.
 
 ## Data Model Changes
@@ -188,7 +188,7 @@ Untouched:
 - Half-width katakana input matches full-width katakana storage (e.g., `ｱ` matches `ア`).
 - Empty submission is incorrect, not a no-op.
 - Enter pressed during IME composition does NOT submit (verified in browser with the macOS Japanese IME or equivalent).
-- 🔊 button on the prompt is hidden when the prompt field is `meaning`, and respects the [[plan-3.md]] kanji-audio toggle on `mainText` of Japanese cards.
+- 🔊 button on the prompt is hidden when the prompt field is `meaning`, and respects the [[03-kanji-audio-toggle.md]] kanji-audio toggle on `mainText` of Japanese cards.
 - Switching from Write back to Swipe or MC mid-session via "End session" returns to the Study picker without errors.
 - `npm run build` succeeds; no new ESLint or TypeScript errors.
 
@@ -214,7 +214,7 @@ Untouched:
 
 ### M4 — Mode plumbing in `StudyScreen`
 
-1. Add the third option to the mode picker (or `Tabs` after [[plan-4.md]] M5).
+1. Add the third option to the mode picker (or `Tabs` after [[04-shadcn-ui-overhaul.md]] M5).
 2. Render `<WriteMode />` when selected.
 3. Update the session-header title.
 

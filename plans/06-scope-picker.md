@@ -1,6 +1,6 @@
 # Phase 6 Plan — Session Scope Picker
 
-Builds on [plan-1.md](./plan-1.md) (study flow), [plan-2.md](./plan-2.md) (Minna lessons + import), [plan-4.md](./plan-4.md) (shadcn UI), and [plan-5.md](./plan-5.md) (Write mode). Adds a **scope picker** so each study session can target one or more datasets — e.g., "study only Minna Bài 3", "study Bài 1 + Bài 3 together", or "drill the kana vowels".
+Builds on [01-mvp-flashcards.md](./01-mvp-flashcards.md) (study flow), [02-audio-and-minna-decks.md](./02-audio-and-minna-decks.md) (Minna lessons + import), [04-shadcn-ui-overhaul.md](./04-shadcn-ui-overhaul.md) (shadcn UI), and [05-write-mode.md](./05-write-mode.md) (Write mode). Adds a **scope picker** so each study session can target one or more datasets — e.g., "study only Minna Bài 3", "study Bài 1 + Bài 3 together", or "drill the kana vowels".
 
 ## Motivation
 
@@ -18,7 +18,7 @@ When the user clicks **Start session**, open a modal that lists every dataset (l
 
 A "dataset" in v1 is just a tag on a card. The available datasets per language come from:
 
-- The bundled `data/minna-bai-*.md` lesson files — each contributes a `minna-bai-N` tag during import (already present, see [[plan-2.md]]).
+- The bundled `data/minna-bai-*.md` lesson files — each contributes a `minna-bai-N` tag during import (already present, see [[02-audio-and-minna-decks.md]]).
 - The `kana` tag added by the manual vowel import.
 - Any future user-imported set: if a CSV row has a tag like `minna-bai-12`, it shows up automatically.
 
@@ -116,7 +116,7 @@ quizz-card.studyScope.<languageId> = JSON.stringify({ tags: string[] | null })
 
 ### 6. Accessibility
 
-- Each checkbox row is a labeled `<label>` wrapping `Checkbox` + text — the existing `BuiltInLessons` pattern in [[plan-2.md]] is the reference.
+- Each checkbox row is a labeled `<label>` wrapping `Checkbox` + text — the existing `BuiltInLessons` pattern in [[02-audio-and-minna-decks.md]] is the reference.
 - Modal traps focus (shadcn `Dialog` does this automatically).
 - "Start session" button gets `aria-disabled` and a `Tooltip` explaining "Pick at least one dataset" when nothing is selected.
 

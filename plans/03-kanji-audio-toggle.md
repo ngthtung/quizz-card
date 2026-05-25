@@ -1,6 +1,6 @@
 # Phase 3 Plan
 
-Builds on [plan-1.md](./plan-1.md) and [plan-2.md](./plan-2.md). Adds a Settings toggle to turn the Kanji (Chinese-character) audio on or off, so learners who are new to kanji can keep its sound, while readers who already know kanji can quietly hide it.
+Builds on [01-mvp-flashcards.md](./01-mvp-flashcards.md) and [02-audio-and-minna-decks.md](./02-audio-and-minna-decks.md). Adds a Settings toggle to turn the Kanji (Chinese-character) audio on or off, so learners who are new to kanji can keep its sound, while readers who already know kanji can quietly hide it.
 
 ## Motivation
 

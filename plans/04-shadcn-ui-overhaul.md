@@ -1,6 +1,6 @@
 # Phase 4 Plan — UI/UX Overhaul with shadcn/ui
 
-Builds on [plan-1.md](./plan-1.md), [plan-2.md](./plan-2.md), and [plan-3.md](./plan-3.md). The first three phases delivered features; this phase makes the app feel polished and consistent by replacing the hand-rolled primitives with **shadcn/ui** components and tightening visual hierarchy, spacing, and interaction feedback.
+Builds on [01-mvp-flashcards.md](./01-mvp-flashcards.md), [02-audio-and-minna-decks.md](./02-audio-and-minna-decks.md), and [03-kanji-audio-toggle.md](./03-kanji-audio-toggle.md). The first three phases delivered features; this phase makes the app feel polished and consistent by replacing the hand-rolled primitives with **shadcn/ui** components and tightening visual hierarchy, spacing, and interaction feedback.
 
 ## Motivation
 
@@ -47,7 +47,7 @@ Replace each existing primitive with the equivalent shadcn component. Old files 
 | `components/Modal.tsx`          | `ui/dialog.tsx` + `ui/sheet.tsx`                | Use `Sheet` (bottom slide-up) on mobile for forms; `Dialog` (centered) on desktop. Pick by viewport at the call site, not inside the component. |
 | `components/TextField.tsx`      | `ui/input.tsx`, `ui/textarea.tsx`, `ui/label.tsx`, `ui/form.tsx` | Replace bespoke label-wrap pattern with `Form` + `FormField` from shadcn (uses `react-hook-form` + `zod`). See §3 for whether we adopt `react-hook-form`. |
 | `components/PageHeader.tsx`     | Keep, restyled                                   | Small custom component; restyle with `Separator` and `Button` only — no need for a shadcn equivalent. |
-| `components/SpeakButton.tsx`    | Restyled with `Button size="icon"` + `Volume2` icon | Behavior unchanged; visuals only. Respects [[plan-3.md]] kanji-toggle. |
+| `components/SpeakButton.tsx`    | Restyled with `Button size="icon"` + `Volume2` icon | Behavior unchanged; visuals only. Respects [[03-kanji-audio-toggle.md]] kanji-toggle. |
 | `components/Layout.tsx` (sidebar + bottom nav) | `ui/sidebar.tsx` (desktop) + custom mobile bar   | shadcn ships a full sidebar primitive — use it on desktop. Mobile bottom-nav stays custom (shadcn doesn't ship one) but uses shadcn `Button` + lucide icons. |
 
 New shadcn components to add (not replacing anything, but used across screens):
@@ -67,7 +67,7 @@ New shadcn components to add (not replacing anything, but used across screens):
 
 shadcn's `Form` is built on `react-hook-form` + `zod`. The current forms are uncontrolled-style with manual error tracking. Two paths:
 
-- **A. Adopt `react-hook-form` + `zod` (recommended)** — shared validation schemas for card create/edit and language create/edit, reusable for the import validator (CSV/JSON in [[plan-2.md]]). Better long-term, matches shadcn idioms.
+- **A. Adopt `react-hook-form` + `zod` (recommended)** — shared validation schemas for card create/edit and language create/edit, reusable for the import validator (CSV/JSON in [[02-audio-and-minna-decks.md]]). Better long-term, matches shadcn idioms.
 - **B. Use `Input`/`Textarea`/`Label` only, keep current local state** — smaller diff, but we lose the integrated error rendering.
 
 Pick **A** unless time-boxed. If we go A, the import validator in `src/lib/import.ts` should consume the same zod schema so "at least one variant filled" stays defined in one place.
@@ -97,7 +97,7 @@ Pick **A** unless time-boxed. If we go A, the import validator in `src/lib/impor
 #### Sections (under Languages or as a sub-section of Cards)
 
 - List of `Card` rows per section with card count and primary "Study this section" `Button`.
-- Markdown ingest buttons (`data/minna-bai-N.md` from [[plan-2.md]]) become a `Card` grid on the Import screen with a `Button` per file and a `Badge` showing how many cards it would create.
+- Markdown ingest buttons (`data/minna-bai-N.md` from [[02-audio-and-minna-decks.md]]) become a `Card` grid on the Import screen with a `Button` per file and a `Badge` showing how many cards it would create.
 
 #### Study screen (`src/screens/StudyScreen.tsx`)
 
@@ -127,7 +127,7 @@ Pick **A** unless time-boxed. If we go A, the import validator in `src/lib/impor
 #### Settings screen (`src/screens/SettingsScreen.tsx`)
 
 - Group settings into `Card` sections: "Audio", "Data", "Appearance" (placeholder for future).
-- Each toggle uses `Switch` + `Label` + helper text. Reuses [[plan-3.md]]'s `kanjiAudioEnabled`.
+- Each toggle uses `Switch` + `Label` + helper text. Reuses [[03-kanji-audio-toggle.md]]'s `kanjiAudioEnabled`.
 - "Reset all data" uses `AlertDialog` with a typed confirmation ("type DELETE to confirm").
 - Export-as-JSON triggers a sonner toast on success/failure.
 
