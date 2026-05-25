@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { SpeakButton } from '@/components/SpeakButton';
 import { Furigana } from '@/components/Furigana';
 import { pronunciationFor } from '@/lib/speech';
-import { nonEmptyFields, pickRandom, pickWeighted, shuffle } from '@/lib/study';
+import { pickWeighted, shuffle } from '@/lib/study';
 import { matchesScope } from '@/lib/datasets';
 import { cn } from '@/lib/utils';
 import type { FieldKey, Flashcard, Scope } from '@/types';
@@ -87,7 +87,7 @@ export function MultipleChoiceMode({
   if (!question) {
     return (
       <p className="text-muted-foreground px-4 py-6 text-sm">
-        Need at least one card with two filled fields.
+        Need at least two cards with a meaning and a kanji/hiragana/katakana field.
       </p>
     );
   }
@@ -141,9 +141,11 @@ export function MultipleChoiceMode({
         {question.choices.map((c, i) => {
           const isPicked = picked === i;
           const isCorrect = i === question.correctIndex;
+          const isAnswered = picked !== null;
+          const showSpeaker = question.answerField !== 'meaning';
           const cls =
-            picked === null
-              ? 'bg-card hover:bg-accent border-border'
+            !isAnswered
+              ? 'bg-card hover:bg-accent border-border cursor-pointer'
               : isCorrect
                 ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500'
                 : isPicked
@@ -162,7 +164,7 @@ export function MultipleChoiceMode({
                   enabled={isJa && question.answerField === 'mainText'}
                 />
               </span>
-              {picked !== null && question.answerField !== 'meaning' ? (
+              {showSpeaker ? (
                 <SpeakButton
                   text={c}
                   languageName={language.name}
@@ -173,28 +175,48 @@ export function MultipleChoiceMode({
             </>
           );
 
-          return picked === null ? (
+          const baseClass = cn(
+            'flex min-h-12 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-base transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            cls,
+          );
+
+          if (isAnswered) {
+            return (
+              <div key={i} className={baseClass}>
+                {content}
+              </div>
+            );
+          }
+
+          if (showSpeaker) {
+            return (
+              <div
+                key={i}
+                role="button"
+                tabIndex={0}
+                onClick={() => onPick(i)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onPick(i);
+                  }
+                }}
+                className={baseClass}
+              >
+                {content}
+              </div>
+            );
+          }
+
+          return (
             <button
               key={i}
               type="button"
               onClick={() => onPick(i)}
-              className={cn(
-                'flex min-h-12 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-base transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                cls,
-              )}
+              className={baseClass}
             >
               {content}
             </button>
-          ) : (
-            <div
-              key={i}
-              className={cn(
-                'flex min-h-12 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-base',
-                cls,
-              )}
-            >
-              {content}
-            </div>
           );
         })}
       </div>
@@ -219,41 +241,68 @@ export function MultipleChoiceMode({
   );
 }
 
+const SCRIPT_FIELDS: FieldKey[] = ['mainText', 'variant2', 'variant3'];
+
+function pickScriptField(card: Flashcard): FieldKey | null {
+  if (card.mainText) return 'mainText';
+  if (card.variant2) return 'variant2';
+  if (card.variant3) return 'variant3';
+  return null;
+}
+
+function isEligible(card: Flashcard): boolean {
+  return Boolean(card.meaning) && SCRIPT_FIELDS.some((f) => card[f]);
+}
+
 function buildQuestion(cards: Flashcard[]): Question | null {
-  const card = pickWeighted(cards);
-  if (!card) return null;
+  const eligible = cards.filter(isEligible);
+  if (eligible.length === 0) return null;
 
-  const fields = nonEmptyFields(card);
-  if (fields.length < 2) return null;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const card = pickWeighted(eligible);
+    if (!card) return null;
 
-  const questionField = pickRandom(fields);
-  const answerCandidates = fields.filter((f) => f !== questionField);
-  const answerField = pickRandom(answerCandidates);
+    const scriptField = pickScriptField(card);
+    if (!scriptField) continue;
 
-  const correct = card[answerField];
+    const direction: 'scriptToMeaning' | 'meaningToScript' =
+      Math.random() < 0.5 ? 'scriptToMeaning' : 'meaningToScript';
 
-  // Build distractor pool with card references
-  const distractorCardsPool = cards
-    .filter((c) => c.id !== card.id && c[answerField])
-    .filter((c) => c[answerField] !== correct);
+    const questionField: FieldKey =
+      direction === 'scriptToMeaning' ? scriptField : 'meaning';
+    const answerField: FieldKey =
+      direction === 'scriptToMeaning' ? 'meaning' : scriptField;
 
-  const distractorCards = shuffle(distractorCardsPool).slice(0, 3);
-  const distractors = distractorCards.map((c) => c[answerField] as string);
+    const correct = card[answerField];
+    if (!correct) continue;
 
-  // Create choices with corresponding cards
-  const choicesWithCards: Array<{ text: string; card: Flashcard | null }> = [
-    { text: correct, card },
-    ...distractors.map((text, idx) => ({
-      text,
-      card: answerField === 'mainText' ? distractorCards[idx] : null
-    })),
-  ];
+    const distractorPool = eligible.filter(
+      (c) => c.id !== card.id && c[answerField] && c[answerField] !== correct,
+    );
+    const distractorCards = shuffle(distractorPool).slice(0, 3);
+    const distractors = distractorCards.map((c) => c[answerField] as string);
 
-  // Shuffle everything together
-  const shuffled = shuffle(choicesWithCards);
-  const allChoices = shuffled.map((c) => c.text);
-  const choiceCards = shuffled.map((c) => c.card);
-  const correctIndex = allChoices.indexOf(correct);
+    const choicesWithCards: Array<{ text: string; card: Flashcard | null }> = [
+      { text: correct, card },
+      ...distractors.map((text, idx) => ({
+        text,
+        card: answerField === 'mainText' ? distractorCards[idx] : null,
+      })),
+    ];
 
-  return { card, questionField, answerField, choices: allChoices, choiceCards, correctIndex };
+    const shuffled = shuffle(choicesWithCards);
+    const allChoices = shuffled.map((c) => c.text);
+    const choiceCards = shuffled.map((c) => c.card);
+    const correctIndex = allChoices.indexOf(correct);
+
+    return {
+      card,
+      questionField,
+      answerField,
+      choices: allChoices,
+      choiceCards,
+      correctIndex,
+    };
+  }
+  return null;
 }

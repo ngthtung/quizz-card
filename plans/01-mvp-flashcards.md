@@ -170,6 +170,13 @@ Flow:
    - Incorrect: increment `forgottenCount`
 8. Move to the next question.
 
+**Choice audio (speaker icon):**
+
+- When the answer field is a Japanese-script field (`mainText` / `variant2` / `variant3`), each choice renders a 🔊 SpeakButton next to the choice text — visible **at all times**, both before and after the user picks. This lets learners audition the options as part of solving (e.g., they hear `しゅっしん` and pick the right kanji).
+- When the answer field is `meaning`, no per-choice speaker is shown (meanings aren't in the target language).
+- The speaker click must `stopPropagation()` so it doesn't also register as picking that choice. Because `<button>` cannot legally nest another `<button>`, render the choice container as a clickable `<div>` (with `role="button"`, `tabIndex={0}`, and Enter/Space key handlers) when the answer field is a Japanese-script field. Plain meaning choices stay as native `<button>`.
+- The kanji-audio toggle from [[03-kanji-audio-toggle]] still applies: when audio field is `mainText` of a Japanese card and the toggle is off, `SpeakButton` returns `null` on its own, so no special-casing needed in the choice renderer.
+
 ## Import Format
 
 ### CSV Columns

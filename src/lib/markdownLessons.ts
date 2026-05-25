@@ -65,18 +65,48 @@ function parseLesson(markdown: string, lessonTitle: string): ImportRow[] {
         const vietnamese = get("vietnamese");
         if (!japanese && !reading && !vietnamese) continue;
 
+        const { mainText, variant2, variant3 } = routeJapaneseField(japanese);
+
         rows.push({
             language: "Japanese",
-            mainText: japanese,
+            mainText,
             variant1: reading,
-            variant2: "",
-            variant3: "",
+            variant2,
+            variant3,
             meaning: vietnamese,
             tags: [lessonTitle],
         });
     }
 
     return rows;
+}
+
+const HIRAGANA_RE = /[぀-ゟ]/;
+const KATAKANA_RE = /[゠-ヿ]/;
+const KANJI_RE = /[一-鿿]/;
+
+// Loanwords like エスカレーター have no hiragana form; native words like へや
+// have no kanji form. Route them so the displayed label matches the script
+// (Hiragana / Katakana) instead of mislabeling everything as "Kanji".
+function routeJapaneseField(japanese: string): {
+    mainText: string;
+    variant2: string;
+    variant3: string;
+} {
+    if (!japanese) return { mainText: "", variant2: "", variant3: "" };
+    const hasKanji = KANJI_RE.test(japanese);
+    if (hasKanji) {
+        return { mainText: japanese, variant2: "", variant3: "" };
+    }
+    const hasKatakana = KATAKANA_RE.test(japanese);
+    const hasHiragana = HIRAGANA_RE.test(japanese);
+    if (hasKatakana && !hasHiragana) {
+        return { mainText: "", variant2: "", variant3: japanese };
+    }
+    if (hasHiragana && !hasKatakana) {
+        return { mainText: "", variant2: japanese, variant3: "" };
+    }
+    return { mainText: japanese, variant2: "", variant3: "" };
 }
 
 function splitRow(line: string): string[] {

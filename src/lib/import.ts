@@ -48,17 +48,29 @@ export async function importRows(rows: ImportRow[]): Promise<ImportResult> {
 
       const isJapanese = langName.toLowerCase() === 'japanese';
       const variant1 = row.variant1 ?? '';
+      const variant3 = row.variant3 ?? '';
+      const mainText = row.mainText ?? '';
       let variant2 = row.variant2 ?? '';
-      if (isJapanese && !variant2.trim() && looksLikeRomaji(variant1)) {
+      // Only auto-derive hiragana for words that actually have a kanji form.
+      // Katakana loanwords (エスカレーター) and pure-kana words have no
+      // meaningful hiragana spelling — generating one produces nonsense.
+      const hasKanji = /[一-鿿]/.test(mainText);
+      if (
+        isJapanese &&
+        hasKanji &&
+        !variant2.trim() &&
+        !variant3.trim() &&
+        looksLikeRomaji(variant1)
+      ) {
         variant2 = romajiToHiragana(variant1);
       }
 
       await createFlashcard({
         languageId,
-        mainText: row.mainText ?? '',
+        mainText,
         variant1,
         variant2,
-        variant3: row.variant3 ?? '',
+        variant3,
         meaning: row.meaning ?? '',
         notes: row.notes,
         tags,
