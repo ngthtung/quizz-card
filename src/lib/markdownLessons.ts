@@ -6,28 +6,20 @@ const lessonFiles = import.meta.glob("../../data/minna-bai-*.md", {
     eager: true,
 }) as Record<string, string>;
 
-// Debug: Log immediately when module loads
-console.log("=== markdownLessons.ts module load ===");
-console.log("Glob pattern: ../../data/minna-bai-*.md");
-console.log("Files detected by glob:", Object.keys(lessonFiles));
-console.log("Count:", Object.keys(lessonFiles).length);
-console.log("======================================");
-
 export function listLessons(): Lesson[] {
-    console.log("listLessons: Found files:", Object.keys(lessonFiles));
-    const lessons: Lesson[] = [];
+    const lessons: Array<Lesson & { _num: number }> = [];
     for (const [path, raw] of Object.entries(lessonFiles)) {
         const match = path.match(/minna-bai-(\d+)\.md$/);
         if (!match) continue;
-        const num = match[1];
-        const id = `minna-bai-${num}`;
-        const title = `Minna Bài ${parseInt(num, 10)}`;
+        const num = parseInt(match[1], 10);
+        const id = `minna-bai-${match[1]}`;
+        const title = `Minna Bài ${num}`;
         const rows = parseLesson(raw, id);
-        console.log(`Parsed ${title}: ${rows.length} rows`);
-        lessons.push({ id, title, rows });
+        lessons.push({ id, title, rows, _num: num });
     }
-    console.log("listLessons: Total lessons:", lessons.length);
-    return lessons.sort((a, b) => a.id.localeCompare(b.id));
+    return lessons
+        .sort((a, b) => a._num - b._num)
+        .map(({ _num, ...l }) => l);
 }
 
 function parseLesson(markdown: string, lessonTitle: string): ImportRow[] {
