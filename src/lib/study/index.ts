@@ -1,4 +1,4 @@
-import { pronunciationFor } from './speech';
+import { pronunciationFor } from '../speech';
 import {
   FIELD_KEYS,
   type FieldKey,
@@ -6,7 +6,7 @@ import {
   type Language,
   type ListenQuestion,
   type WriteQuestion,
-} from '../types';
+} from '../../types';
 
 export function priority(card: Flashcard): number {
   const base = 1 + card.forgottenCount * 2 - card.rememberedCount;

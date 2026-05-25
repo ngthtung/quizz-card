@@ -1,6 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Headphones, Keyboard, Layers, Target } from 'lucide-react';
+import {
+  ArrowLeft,
+  Headphones,
+  Keyboard,
+  Layers,
+  Shuffle,
+  Target,
+} from 'lucide-react';
 import { PageHeader, PageShell } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,10 +28,11 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { db } from '@/db/db';
-import { SwipeMode } from './study/SwipeMode';
-import { MultipleChoiceMode } from './study/MultipleChoiceMode';
-import { WriteMode } from './study/WriteMode';
-import { ListenMode } from './study/ListenMode';
+import { SwipeMode } from './study/swipe';
+import { MultipleChoiceMode } from './study/mc';
+import { WriteMode } from './study/write';
+import { ListenMode } from './study/listen';
+import { MixedMode } from './study/mixed';
 import { ScopePicker } from '@/components/ScopePicker';
 import { speechSupported } from '@/lib/speech';
 import {
@@ -34,13 +42,14 @@ import {
 } from '@/lib/datasets';
 import type { Scope } from '@/types';
 
-type Mode = 'swipe' | 'mc' | 'write' | 'listen';
+type Mode = 'swipe' | 'mc' | 'write' | 'listen' | 'mixed';
 
 const MODE_TITLES: Record<Mode, string> = {
   swipe: 'Swipe study',
   mc: 'Multiple choice',
   write: 'Write study',
   listen: 'Listening',
+  mixed: 'Mixed drill',
 };
 
 type Session = { mode: Mode; languageId: string; scope: Scope };
@@ -114,8 +123,10 @@ export function StudyScreen() {
           />
         ) : session.mode === 'write' ? (
           <WriteMode languageId={session.languageId} scope={session.scope} />
-        ) : (
+        ) : session.mode === 'listen' ? (
           <ListenMode languageId={session.languageId} scope={session.scope} />
+        ) : (
+          <MixedMode languageId={session.languageId} scope={session.scope} />
         )}
       </>
     );
@@ -160,16 +171,16 @@ export function StudyScreen() {
                 <div className="space-y-2">
                   <Label>Mode</Label>
                   <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
-                    <TabsList className="grid w-full grid-cols-4">
-                      <TabsTrigger value="swipe">
+                    <TabsList className="grid h-auto w-full grid-cols-6 gap-1">
+                      <TabsTrigger value="swipe" className="col-span-2 h-9">
                         <Layers />
                         Swipe
                       </TabsTrigger>
-                      <TabsTrigger value="mc">
+                      <TabsTrigger value="mc" className="col-span-2 h-9">
                         <Target />
                         Choice
                       </TabsTrigger>
-                      <TabsTrigger value="write">
+                      <TabsTrigger value="write" className="col-span-2 h-9">
                         <Keyboard />
                         Write
                       </TabsTrigger>
@@ -181,9 +192,14 @@ export function StudyScreen() {
                             ? undefined
                             : 'Browser TTS not available'
                         }
+                        className="col-span-2 col-start-2 h-9"
                       >
                         <Headphones />
                         Listen
+                      </TabsTrigger>
+                      <TabsTrigger value="mixed" className="col-span-2 h-9">
+                        <Shuffle />
+                        Mixed
                       </TabsTrigger>
                     </TabsList>
                   </Tabs>
@@ -194,7 +210,9 @@ export function StudyScreen() {
                         ? 'Pick A, B, C, or D.'
                         : mode === 'write'
                           ? 'Type the answer.'
-                          : 'Hear the word, pick the meaning.'}
+                          : mode === 'listen'
+                            ? 'Hear the word, pick the meaning.'
+                            : 'Random Swipe / Choice / Listen each card. Wrong cards keep coming back until mastered.'}
                   </p>
                 </div>
 

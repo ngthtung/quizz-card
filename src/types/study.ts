@@ -1,6 +1,8 @@
 import type { FieldKey } from './fields';
 import type { Flashcard } from './flashcard';
 
+export type SubMode = 'swipe' | 'mc' | 'write' | 'listen';
+
 export type WriteQuestion = {
   card: Flashcard;
   promptField: FieldKey;

@@ -1,146 +1,15 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { useDrag } from '@use-gesture/react';
-import { CheckCircle2, Eye, EyeOff, XCircle } from 'lucide-react';
-import { db } from '@/db/db';
-import { recordReview } from '@/db/flashcards';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { SpeakButton } from '@/components/SpeakButton';
 import { Furigana } from '@/components/Furigana';
 import { pronunciationFor } from '@/lib/speech';
-import { nonEmptyFields, pickRandom, pickWeighted } from '@/lib/study';
-import { matchesScope } from '@/lib/datasets';
-import type { FieldKey, Flashcard, Language, Scope } from '@/types';
+import { nonEmptyFields } from '@/lib/study';
+import type { FieldKey, Flashcard, Language } from '@/types';
 
 const SWIPE_THRESHOLD = 110;
 
-export function SwipeMode({
-  languageId,
-  scope,
-}: {
-  languageId: string;
-  scope: Scope;
-}) {
-  const language = useLiveQuery(
-    () => db.languages.get(languageId),
-    [languageId],
-  );
-  const cards = useLiveQuery(
-    () =>
-      db.flashcards
-        .where('languageId')
-        .equals(languageId)
-        .filter((c) => matchesScope(c, scope))
-        .toArray(),
-    [languageId, scope],
-  );
-
-  const [current, setCurrent] = useState<{
-    card: Flashcard;
-    promptField: FieldKey;
-  } | null>(null);
-  const [revealed, setRevealed] = useState(false);
-  const [reviewed, setReviewed] = useState(0);
-
-  useEffect(() => {
-    if (cards && !current) {
-      const next = nextCard(cards);
-      if (next) setCurrent(next);
-    }
-  }, [cards, current]);
-
-  function nextCard(pool: Flashcard[]) {
-    const card = pickWeighted(pool);
-    if (!card) return null;
-    const fields = nonEmptyFields(card);
-    if (fields.length === 0) return null;
-    return { card, promptField: pickRandom(fields) };
-  }
-
-  async function submit(remembered: boolean) {
-    if (!current || !cards) return;
-    await recordReview(current.card.id, remembered);
-    const updated = await db.flashcards
-      .where('languageId')
-      .equals(languageId)
-      .filter((c) => matchesScope(c, scope))
-      .toArray();
-    setReviewed((n) => n + 1);
-    setCurrent(nextCard(updated));
-    setRevealed(false);
-  }
-
-  if (!cards || !language) {
-    return (
-      <p className="text-muted-foreground px-4 py-6 text-sm">Loading…</p>
-    );
-  }
-  if (cards.length === 0) {
-    return (
-      <p className="text-muted-foreground px-4 py-6 text-sm">
-        No cards in this language yet. Add some on the Cards screen.
-      </p>
-    );
-  }
-  if (!current) {
-    return (
-      <p className="text-muted-foreground px-4 py-6 text-sm">Preparing…</p>
-    );
-  }
-
-  const sessionTotal = Math.max(cards.length, reviewed + 1);
-  const progress = Math.min(100, (reviewed / sessionTotal) * 100);
-
-  return (
-    <div className="mx-auto max-w-md px-4 py-6 md:px-6">
-      <div className="mb-4 space-y-1">
-        <div className="text-muted-foreground flex items-center justify-between text-xs">
-          <span>Reviewed {reviewed}</span>
-          <span>{cards.length} cards in pool</span>
-        </div>
-        <Progress value={progress} />
-      </div>
-
-      <SwipeCard
-        key={current.card.id + current.promptField}
-        card={current.card}
-        language={language}
-        promptField={current.promptField}
-        revealed={revealed}
-        onReveal={() => setRevealed(true)}
-        onSubmit={submit}
-      />
-
-      <div className="mt-6 grid grid-cols-3 gap-2">
-        <Button
-          variant="outline"
-          size="lg"
-          className="text-destructive hover:bg-destructive/10"
-          onClick={() => submit(false)}
-        >
-          <XCircle />
-          Forgot
-        </Button>
-        <Button
-          variant="secondary"
-          size="lg"
-          onClick={() => setRevealed((v) => !v)}
-        >
-          {revealed ? <EyeOff /> : <Eye />}
-          {revealed ? 'Hide' : 'Reveal'}
-        </Button>
-        <Button variant="success" size="lg" onClick={() => submit(true)}>
-          <CheckCircle2 />
-          Remember
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function SwipeCard({
+export function SwipeCard({
   card,
   language,
   promptField,
